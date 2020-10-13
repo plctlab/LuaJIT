@@ -574,6 +574,90 @@
     goto done; \
   }
 
+#elif LJ_TARGET_RISCV
+/* -- riscv calling conventions ---------------------------------------- */
+
+#define CCALL_HANDLE_STRUCTRET \
+  cc->retref = (ccall_classify_struct(cts, ctr, ct) || sz <= 8) ? 0 : 1; \
+  if (cc->retref) cc->gpr[ngpr++] = (GPRArg)dp;
+
+#define CCALL_HANDLE_STRUCTRET2 \
+  ccall_copy_struct(cc, ctr, dp, sp, ccall_classify_struct(cts, ctr, ct));
+
+#define CCALL_HANDLE_COMPLEXRET \
+  /* Complex values are returned in 1 or 2 FPRs. */ \
+  cc->retref = 0;
+
+#if LJ_ABI_SOFTFP
+
+#else
+#define CCALL_HANDLE_COMPLEXRET2 \
+  if (ctr->size == 2*sizeof(float)) {  /* Copy complex float from FPRs. */ \
+    ((float *)dp)[0] = cc->fpr[0].f; \
+    ((float *)dp)[1] = cc->fpr[1].f; \
+  } else {  /* Copy complex double from FPRs. */ \
+    ((double *)dp)[0] = cc->fpr[0].d; \
+    ((double *)dp)[1] = cc->fpr[1].d; \
+  }
+#endif
+
+#define CCALL_HANDLE_STRUCTARG \
+  unsigned int cl = ccall_classify_struct(cts, d, ct); \
+  if (cl == 0 && sz > 8) {  /* Pass struct by reference. */ \
+    rp = cdataptr(lj_cdata_new(cts, did, sz)); \
+    sz = CTSIZE_PTR; \
+  } else if (cl > 0) {  /* Pass struct in FPRs or on stack. */ \
+    switch (cl) { \
+      case 5: isfp = 2; break; \
+      case 10: isfp = 3; break; \
+      default: isfp = 1; \
+    } \
+  }
+
+#define CCALL_HANDLE_COMPLEXARG \
+  /* Pass complex by value in separate (!) FPRs. */ \
+  isfp = (sz == 2*sizeof(float)) ? 2 : 3; \
+  if (isfp == 3 && nfpr >= CCALL_NARG_FPR) { \
+    rp = cdataptr(lj_cdata_new(cts, did, sz)); \
+    sz = CTSIZE_PTR; \
+    isfp = 0; \
+  }
+
+#define CCALL_HANDLE_GPR \
+  if (isfp && ((d->info & CTF_ALIGN) > CTALIGN_PTR)) \
+    ngpr = (ngpr + 1u) & ~1u;  /* Align to regpair. */ \
+  if (ngpr < maxgpr) { \
+    dp = &cc->gpr[ngpr]; \
+    if (ngpr + n > maxgpr) { \
+      nsp += ngpr + n - maxgpr;  /* Assumes contiguous gpr/stack fields. */ \
+      if (nsp > CCALL_MAXSTACK) goto err_nyi;  /* Too many arguments. */ \
+      ngpr = maxgpr; \
+    } else { \
+      ngpr += n; \
+    } \
+    goto done; \
+  }
+
+#if !LJ_ABI_SOFTFP	/* RISCV hard-float */
+#define CCALL_HANDLE_REGARG \
+  if (isfp && nfpr < CCALL_NARG_FPR && !(ct->info & CTF_VARARG)) { \
+    /* Try to pass argument in FPRs. */ \
+    dp = &cc->fpr[nfpr]; \
+    nfpr += (isfp == 3) ? 2 : 1; \
+    goto done; \
+  } else {  /* Try to pass argument in GPRs. */ \
+    CCALL_HANDLE_GPR \
+  }
+#else			/* RISCV soft-float */
+#define CCALL_HANDLE_REGARG CCALL_HANDLE_GPR
+#endif
+
+#if !LJ_ABI_SOFTFP
+#define CCALL_HANDLE_RET \
+  if (ctype_isfp(ctr->info) && ctr->size == sizeof(float)) \
+    sp = (uint8_t *)&cc->fpr[0].f;
+#endif
+
 #else
 #error "Missing calling convention definitions for this architecture"
 #endif
@@ -818,7 +902,7 @@ noth:  /* Not a homogeneous float/double aggregate. */
 
 /* -- MIPS64 ABI struct classification ---------------------------- */
 
-#if LJ_TARGET_MIPS64
+#if LJ_TARGET_MIPS64 || LJ_TARGET_RISCV
 
 #define FTYPE_FLOAT	1
 #define FTYPE_DOUBLE	2
@@ -1089,6 +1173,13 @@ static int ccall_set_args(lua_State *L, CTState *cts, CType *ct,
       /* Split float HFA or complex float into separate registers. */
       CTSize i = (sz >> 2) - 1;
       do { ((uint64_t *)dp)[i] = ((uint32_t *)dp)[i]; } while (i--);
+    }
+#elif LJ_TARGET_RISCV
+    if (isfp == 2 && (uint8_t *)dp < (uint8_t *)cc->gpr) {
+      /* Split complex float into separate registers. */
+      CTSize i = (sz >> 2) - 1;
+      do { ((uint64_t *)dp)[i] = ((uint32_t *)dp)[i]; } while (i--);
+      nfpr++;
     }
 #else
     UNUSED(isfp);

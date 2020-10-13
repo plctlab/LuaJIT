@@ -71,6 +71,10 @@ static MSize CALLBACK_OFS2SLOT(MSize ofs)
 
 #define CALLBACK_MCODE_HEAD		52
 
+#elif LJ_TARGET_RISCV
+
+#define CALLBACK_MCODE_HEAD		20
+
 #else
 
 /* Missing support for this architecture. */
@@ -235,6 +239,28 @@ static void *callback_mcode_init(global_State *g, uint32_t *page)
     *p = MIPSI_B | ((page-p-1) & 0x0000ffffu);
     p++;
     *p++ = MIPSI_LI | MIPSF_T(RID_R1) | slot;
+  }
+  return p;
+}
+#elif LJ_TARGET_RISCV
+static void *callback_mcode_init(global_State *g, uint32_t *page)
+{
+  uint32_t *p = page;
+  uintptr_t target = (uintptr_t)(void *)lj_vm_ffi_callback;
+  uintptr_t ug = (uintptr_t)(void *)g;
+  MSize slot;
+  *p++ = RISCVI_LUI | RISCVF_D(RID_R6) | (ug & 0xfffff000);
+  *p++ = RISCVI_LUI | RISCVF_D(RID_R5) | ((target << 12) & 0xfffff000);
+  *p++ = RISCVI_ORI | RISCVF_D(RID_R6) | RISCVF_RS1(RID_R6) | (ug << 20);
+  *p++ = RISCVI_SRLI | RISCVF_D(RID_R5) | RISCVF_RS1(RID_R5) | (12 << 20);
+  *p++ = RISCVI_JALR | RISCVF_D(RID_R0) | RISCVF_RS1(RID_R5);
+
+  for (slot = 0; slot < CALLBACK_MAX_SLOT; slot++) {
+    *p++ = RISCVI_ADDI | RISCVF_D(RID_R7) | (slot << 20);
+    uint32_t n = (page-p)*4;
+    *p = RISCVI_JAL | ((n << 20) & 0x7fe00000) | ((n << 9) & 0x100000)
+		| (n & 0xff000) | ((n << 11) & 0x80000000);
+    p++;
   }
   return p;
 }
@@ -510,6 +536,34 @@ void lj_ccallback_mcode_free(CTState *cts)
     ngpr += n; \
     goto done; \
   }
+#endif
+
+#define CALLBACK_HANDLE_RET \
+  if (ctype_isfp(ctr->info) && ctr->size == sizeof(float)) \
+    ((float *)dp)[1] = *(float *)dp;
+
+#elif LJ_TARGET_RISCV
+
+#define CALLBACK_HANDLE_GPR \
+  if (ngpr + n <= maxgpr) { \
+    sp = &cts->cb.gpr[ngpr]; \
+    ngpr += n; \
+    goto done; \
+  }
+
+#if !LJ_ABI_SOFTFP	/* RISCV hard-float */
+#define CALLBACK_HANDLE_REGARG \
+  if (isfp && nfpr < CCALL_NARG_FPR) {  /* Try to pass argument in FPRs. */ \
+    sp = &cts->cb.fpr[nfpr]; \
+    nfpr += (isfp == 3) ? 2 : 1; \
+    goto done; \
+  } else {  /* Try to pass argument in GPRs. */ \
+    CALLBACK_HANDLE_GPR \
+  }
+#else			/* RISCV soft-float */
+#define CALLBACK_HANDLE_REGARG \
+  CALLBACK_HANDLE_GPR \
+  UNUSED(isfp);
 #endif
 
 #define CALLBACK_HANDLE_RET \

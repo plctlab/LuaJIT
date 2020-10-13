@@ -718,7 +718,10 @@ static uint32_t jit_cpudetect(void)
     if (x) flags |= JIT_F_MIPSXXR2;  /* Either 0x80000000 (R2) or 0 (R1). */
   }
 #endif
+#elif LJ_TARGET_RISCV
+#if LJ_HASJIT
 
+#endif
 #else
 #error "Missing CPU detection for this architecture"
 #endif

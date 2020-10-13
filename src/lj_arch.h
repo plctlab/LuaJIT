@@ -31,6 +31,8 @@
 #define LUAJIT_ARCH_mips32	6
 #define LUAJIT_ARCH_MIPS64	7
 #define LUAJIT_ARCH_mips64	7
+#define LUAJIT_ARCH_RISCV	8
+#define LUAJIT_ARCH_riscv	8
 
 /* Target OS. */
 #define LUAJIT_OS_OTHER		0
@@ -65,6 +67,8 @@
 #define LUAJIT_TARGET	LUAJIT_ARCH_MIPS64
 #elif defined(__mips__) || defined(__mips) || defined(__MIPS__) || defined(__MIPS)
 #define LUAJIT_TARGET	LUAJIT_ARCH_MIPS32
+#elif defined(__riscv__) || defined(__riscv) || defined(__RISCV__) || defined(__RISCV)
+#define LUAJIT_TARGET	LUAJIT_ARCH_RISCV
 #else
 #error "No support for this architecture (yet)"
 #endif
@@ -432,6 +436,49 @@
 #define LJ_ARCH_VERSION		10
 #endif
 
+#elif LUAJIT_TARGET == LUAJIT_ARCH_RISCV
+
+#define LJ_ARCH_ENDIAN		LUAJIT_LE
+
+#if __LP64__
+#define LJ_ARCH_BITS		64
+#define LJ_ARCH_NAME		"riscv64"
+#else
+#define LJ_ARCH_BITS		32
+#define LJ_ARCH_NAME		"riscv"
+#endif
+
+#if !defined(LJ_ABI_SOFTFP)
+#ifdef __riscv_float_abi_soft
+#define LJ_ABI_SOFTFP		1
+#else
+#define LJ_ABI_SOFTFP		0
+#endif
+#endif
+
+#if !defined(LJ_ARCH_HASFPU)
+#ifdef __riscv_float_abi_soft
+#define LJ_ARCH_HASFPU		0
+#else
+#define LJ_ARCH_HASFPU		1
+#endif
+#endif
+
+#if defined(__riscv_32e)
+#define LJ_ARCH_EMBEDDED	1
+#endif
+
+#define LJ_TARGET_RISCV		1
+
+#define LJ_TARGET_JUMPRANGE	20	/* +-2^20 = +-1MB- */
+#define LJ_TARGET_EHRETREG	0
+#define LJ_TARGET_MASKSHIFT	1
+#define LJ_TARGET_MASKROT	1
+#define LJ_TARGET_UNIFYROT	2
+#define LJ_ARCH_NUMMODE		LJ_NUMMODE_DUAL
+#define LUAJIT_DISABLE_JIT	1
+#define LUAJIT_NO_UNWIND	1	// for now
+
 #else
 #error "No target architecture defined"
 #endif
@@ -508,6 +555,16 @@
 #if !((defined(_MIPS_SIM_ABI64) && _MIPS_SIM == _MIPS_SIM_ABI64) || (defined(_ABI64) && _MIPS_SIM == _ABI64))
 /* MIPS32ON64 aka n32 ABI support might be desirable, but difficult. */
 #error "Only n64 ABI supported for MIPS64"
+#endif
+#elif LJ_TARGET_RISCV
+#if LJ_ABI_SOFTFP || __LP64__
+#error "Only RISCV32 HF supported for now"
+#endif
+#if defined(__riscv_compressed)
+#error "Compressed instructions not supported for now"
+#endif
+#if defined(__riscv_32e)
+#error "An embedded flavor of RV32I with only 16 integer registers not supported for now"
 #endif
 #endif
 #endif
