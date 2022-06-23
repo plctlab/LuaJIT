@@ -290,10 +290,6 @@
 |
 |//-----------------------------------------------------------------------
 
-#if !LJ_DUALNUM
-#error "Only dual-number mode supported for riscv64 target"
-#endif
-
 /* Generate subroutines used by opcodes and other parts of the VM. */
 /* The .code_sub section should be last to help static branch prediction. */
 static void build_subroutines(BuildCtx *ctx)

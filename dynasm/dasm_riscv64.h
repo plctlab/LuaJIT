@@ -1,5 +1,5 @@
 /*
-** DynASM ARM64 encoding engine.
+** DynASM riscv64 encoding engine.
 ** Copyright (C) 2005-2022 Mike Pall. All rights reserved.
 ** Released under the MIT license. See dynasm.lua for full copyright notice.
 */
@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define DASM_ARCH		"arm64"
+#define DASM_ARCH		"riscv64"
 
 #ifndef DASM_EXTERN
 #define DASM_EXTERN(a,b,c,d)	0
