@@ -1,8 +1,8 @@
-|// Low-level VM code for ARM64 CPUs.
+|// Low-level VM code for riscv64 CPUs.
 |// Bytecode interpreter, fast functions and helper functions.
 |// Copyright (C) 2005-2022 Mike Pall. See Copyright Notice in luajit.h
 |
-|.arch arm64
+|.arch riscv64
 |.section code_op, code_sub
 |
 |.actionlist build_actionlist
@@ -15,7 +15,7 @@
 |
 |//-----------------------------------------------------------------------
 |
-|// ARM64 registers and the AAPCS64 ABI 1.0 at a glance:
+|// riscv64 registers and the AAPCS64 ABI 1.0 at a glance:
 |//
 |// x0-x17 temp, x19-x28 callee-saved, x29 fp, x30 lr
 |// x18 is reserved on most platforms. Don't use it, save it or restore it.
@@ -291,7 +291,7 @@
 |//-----------------------------------------------------------------------
 
 #if !LJ_DUALNUM
-#error "Only dual-number mode supported for ARM64 target"
+#error "Only dual-number mode supported for riscv64 target"
 #endif
 
 /* Generate subroutines used by opcodes and other parts of the VM. */
@@ -3781,7 +3781,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |.if JIT
     |  // RA = base (ignored), RC = traceno
     |  ldr CARG1, [GL, #GL_J(trace)]
-    |   mov CARG2w, #0  // Traces on ARM64 don't store the trace #, so use 0.
+    |   mov CARG2w, #0  // Traces on riscv64 don't store the trace #, so use 0.
     |  ldr TRACE:RC, [CARG1, RC, lsl #3]
     |   st_vmstate CARG2w
     |  ldr RA, TRACE:RC->mcode
