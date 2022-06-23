@@ -53,6 +53,7 @@ CCOPT_arm=
 CCOPT_arm64=
 CCOPT_ppc=
 CCOPT_mips=
+CCOPT_riscv64=
 #
 CCDEBUG=
 # Uncomment the next line to generate debug information:
@@ -238,42 +239,46 @@ TARGET_TESTARCH=$(shell $(TARGET_CC) $(TARGET_TCFLAGS) -E lj_arch.h -dM)
 ifneq (,$(findstring LJ_TARGET_X64 ,$(TARGET_TESTARCH)))
   TARGET_LJARCH= x64
 else
-ifneq (,$(findstring LJ_TARGET_X86 ,$(TARGET_TESTARCH)))
-  TARGET_LJARCH= x86
-else
-ifneq (,$(findstring LJ_TARGET_ARM ,$(TARGET_TESTARCH)))
-  TARGET_LJARCH= arm
-else
-ifneq (,$(findstring LJ_TARGET_ARM64 ,$(TARGET_TESTARCH)))
-  ifneq (,$(findstring __AARCH64EB__ ,$(TARGET_TESTARCH)))
-    TARGET_ARCH= -D__AARCH64EB__=1
-  endif
-  TARGET_LJARCH= arm64
-else
-ifneq (,$(findstring LJ_TARGET_PPC ,$(TARGET_TESTARCH)))
-  ifneq (,$(findstring LJ_LE 1,$(TARGET_TESTARCH)))
-    TARGET_ARCH= -DLJ_ARCH_ENDIAN=LUAJIT_LE
+  ifneq (,$(findstring LJ_TARGET_X86 ,$(TARGET_TESTARCH)))
+    TARGET_LJARCH= x86
   else
-    TARGET_ARCH= -DLJ_ARCH_ENDIAN=LUAJIT_BE
+    ifneq (,$(findstring LJ_TARGET_ARM ,$(TARGET_TESTARCH)))
+      TARGET_LJARCH= arm
+    else
+      ifneq (,$(findstring LJ_TARGET_ARM64 ,$(TARGET_TESTARCH)))
+        ifneq (,$(findstring __AARCH64EB__ ,$(TARGET_TESTARCH)))
+          TARGET_ARCH= -D__AARCH64EB__=1
+        endif
+        TARGET_LJARCH= arm64
+      else
+        ifneq (,$(findstring LJ_TARGET_PPC ,$(TARGET_TESTARCH)))
+          ifneq (,$(findstring LJ_LE 1,$(TARGET_TESTARCH)))
+            TARGET_ARCH= -DLJ_ARCH_ENDIAN=LUAJIT_LE
+          else
+            TARGET_ARCH= -DLJ_ARCH_ENDIAN=LUAJIT_BE
+          endif
+          TARGET_LJARCH= ppc
+        else
+          ifneq (,$(findstring LJ_TARGET_MIPS ,$(TARGET_TESTARCH)))
+            ifneq (,$(findstring MIPSEL ,$(TARGET_TESTARCH)))
+              TARGET_ARCH= -D__MIPSEL__=1
+            endif
+            ifneq (,$(findstring LJ_TARGET_MIPS64 ,$(TARGET_TESTARCH)))
+              TARGET_LJARCH= mips64
+            else
+              TARGET_LJARCH= mips
+            endif
+          else
+              ifneq (,$(findstring LJ_TARGET_RISCV64 ,$(TARGET_TESTARCH)))
+                TARGET_LJARCH= riscv64
+              else
+                $(error Unsupported target architecture)
+            endif
+          endif
+        endif
+      endif
+    endif
   endif
-  TARGET_LJARCH= ppc
-else
-ifneq (,$(findstring LJ_TARGET_MIPS ,$(TARGET_TESTARCH)))
-  ifneq (,$(findstring MIPSEL ,$(TARGET_TESTARCH)))
-    TARGET_ARCH= -D__MIPSEL__=1
-  endif
-  ifneq (,$(findstring LJ_TARGET_MIPS64 ,$(TARGET_TESTARCH)))
-    TARGET_LJARCH= mips64
-  else
-    TARGET_LJARCH= mips
-  endif
-else
-  $(error Unsupported target architecture)
-endif
-endif
-endif
-endif
-endif
 endif
 
 ifneq (,$(findstring LJ_TARGET_PS3 1,$(TARGET_TESTARCH)))

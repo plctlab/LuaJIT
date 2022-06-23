@@ -31,6 +31,8 @@
 #define LUAJIT_ARCH_mips32	6
 #define LUAJIT_ARCH_MIPS64	7
 #define LUAJIT_ARCH_mips64	7
+#define LUAJIT_ARCH_RISCV64	8
+#define LUAJIT_ARCH_riscv64	8
 
 /* Target OS. */
 #define LUAJIT_OS_OTHER		0
@@ -65,6 +67,8 @@
 #define LUAJIT_TARGET	LUAJIT_ARCH_MIPS64
 #elif defined(__mips__) || defined(__mips) || defined(__MIPS__) || defined(__MIPS)
 #define LUAJIT_TARGET	LUAJIT_ARCH_MIPS32
+#elif defined(__riscv64__) || defined(__riscv64) || defined(__RISCV64__) || defined(__RISCV64)
+#define LUAJIT_TARGET	LUAJIT_ARCH_RISCV64
 #else
 #error "No support for this architecture (yet)"
 #endif
@@ -431,6 +435,15 @@
 #else
 #define LJ_ARCH_VERSION		10
 #endif
+
+#elif LUAJIT_TARGET == LUAJIT_ARCH_RISCV64
+
+#info "LUAJIT_TARGET == LUAJIT_ARCH_RISCV64"
+
+#define LJ_ARCH_NAME		"riscv64"
+#define LJ_ARCH_BITS		64
+#define LJ_TARGET_RISCV64	1
+#define LJ_TARGET_GC64		1
 
 #else
 #error "No target architecture defined"
