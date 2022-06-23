@@ -425,6 +425,29 @@ void lj_ccallback_mcode_free(CTState *cts)
     } \
   }
 
+#elif LJ_TARGET_RISCV64
+
+#define CALLBACK_HANDLE_REGARG \
+  if (isfp) { \
+    if (nfpr + n <= CCALL_NARG_FPR) { \
+      sp = &cts->cb.fpr[nfpr]; \
+      nfpr += n; \
+      goto done; \
+    } else { \
+      nfpr = CCALL_NARG_FPR;  /* Prevent reordering. */ \
+    } \
+  } else { \
+    if (!LJ_TARGET_OSX && n > 1) \
+      ngpr = (ngpr + 1u) & ~1u;  /* Align to regpair. */ \
+    if (ngpr + n <= maxgpr) { \
+      sp = &cts->cb.gpr[ngpr]; \
+      ngpr += n; \
+      goto done; \
+    } else { \
+      ngpr = CCALL_NARG_GPR;  /* Prevent reordering. */ \
+    } \
+  }
+
 #elif LJ_TARGET_PPC
 
 #define CALLBACK_HANDLE_GPR \
