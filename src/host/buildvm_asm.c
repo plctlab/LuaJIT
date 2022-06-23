@@ -134,6 +134,15 @@ static void emit_asm_wordreloc(BuildCtx *ctx, uint8_t *p, int n,
 	    ins, sym);
     exit(1);
   }
+#elif LJ_TARGET_RISCV64
+  if ((ins >> 26) == 0x25u) {
+    fprintf(ctx->fp, "\tbl %s\n", sym);
+  } else {
+    fprintf(stderr,
+	    "Error: unsupported opcode %08x for %s symbol relocation.\n",
+	    ins, sym);
+    exit(1);
+  }
 #elif LJ_TARGET_PPC
 #if LJ_TARGET_PS3
 #define TOCPREFIX "."
