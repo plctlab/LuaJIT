@@ -67,10 +67,14 @@
 #define LUAJIT_TARGET	LUAJIT_ARCH_MIPS64
 #elif defined(__mips__) || defined(__mips) || defined(__MIPS__) || defined(__MIPS)
 #define LUAJIT_TARGET	LUAJIT_ARCH_MIPS32
-#elif defined(__riscv64__) || defined(__riscv64) || defined(__RISCV64__) || defined(__RISCV64)
+#elif defined(__riscv64__) || defined(__riscv64) || defined(riscv64) || defined(__RISCV64__) || defined(__RISCV64)
 #define LUAJIT_TARGET	LUAJIT_ARCH_RISCV64
 #else
-#error "No support for this architecture (yet)"
+
+//FIXME: Don't know how to detect riscv64. Just force it.
+#define LUAJIT_TARGET	LUAJIT_ARCH_RISCV64
+
+// #error "No support for this architecture (yet)"
 #endif
 
 #endif
@@ -437,8 +441,6 @@
 #endif
 
 #elif LUAJIT_TARGET == LUAJIT_ARCH_RISCV64
-
-#info "LUAJIT_TARGET == LUAJIT_ARCH_RISCV64"
 
 #define LJ_ARCH_NAME		"riscv64"
 #define LJ_ARCH_BITS		64
