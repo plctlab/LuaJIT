@@ -136,7 +136,7 @@ static void emit_asm_wordreloc(BuildCtx *ctx, uint8_t *p, int n,
   }
 #elif LJ_TARGET_RISCV64
   if ((ins >> 26) == 0x25u) {
-    fprintf(ctx->fp, "\tbl %s\n", sym);
+    fprintf(ctx->fp, "\tjal %s\n", sym);
   } else {
     fprintf(stderr,
 	    "Error: unsupported opcode %08x for %s symbol relocation.\n",
