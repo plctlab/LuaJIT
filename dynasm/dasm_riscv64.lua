@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- DynASM riscv64 module.
+-- DynASM ARM64 module.
 --
 -- Copyright (C) 2005-2022 Mike Pall. All rights reserved.
 -- See dynasm.lua for full copyright notice.
@@ -7,8 +7,8 @@
 
 -- Module information:
 local _info = {
-  arch =	"riscv",
-  description =	"DynASM riscv64 module",
+  arch =	"arm",
+  description =	"DynASM ARM64 module",
   version =	"1.5.0",
   vernum =	 10500,
   release =	"2021-05-02",
@@ -660,7 +660,7 @@ local alias_lslimm = op_alias("ubfm_4", function(p)
   end
 end)
 
--- Template strings for RISC-V instructions.
+-- Template strings for ARM instructions.
 map_op = {
   -- Basic data processing instructions.
   add_3  = "0b000000DNMg|11000000pDpNIg|8b206000pDpNMx",
