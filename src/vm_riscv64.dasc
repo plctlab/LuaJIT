@@ -1,9 +1,9 @@
-|// Low-level VM code for RISCV CPUs.
+|// Low-level VM code for RISCV64 CPUs.
 |// Bytecode interpreter, fast functions and helper functions.
 |// Copyright (C) 2005-2020 Mike Pall. See Copyright Notice in luajit.h
 |//
 |
-|.arch riscv
+|.arch riscv64
 |.section code_op, code_sub
 |
 |.actionlist build_actionlist
@@ -95,16 +95,16 @@
 |
 |// Stack layout while in interpreter. Must match with lj_frame.h.
 |
-|.define CFRAME_SPACE,	128	// Delta for sp.
+|.define CFRAME_SPACE,	192	// Delta for sp.
 |
-|.define SAVE_ERRF,	124(sp)	// 32 bit C frame info.
-|.define SAVE_NRES,	120(sp)
-|.define SAVE_CFRAME,	116(sp)
-|.define SAVE_L,	112(sp)
-|.define SAVE_PC,	108(sp)
+|.define SAVE_ERRF,	188(sp)	// 32 bit C frame info.
+|.define SAVE_NRES,	184(sp)
+|.define SAVE_CFRAME,	176(sp)
+|.define SAVE_L,	168(sp)
+|.define SAVE_PC,	160(sp)
 |//----- 16 byte aligned, ^^^^ 16 byte register save area, owned by interpreter.
-|.define SAVE_GPR_,	56	// .. 52+13*4: 32 bit GPR saves.
-|.define SAVE_FPR_,	8	// .. 4+12*4: 32 bit FPR saves.
+|.define SAVE_GPR_,	80	// .. 80+10*8: 64 bit GPR saves.
+|.define SAVE_FPR_,	16	// .. 16+8*8: 64 bit FPR saves.
 |.define TMPX,		4(sp)	// Unused by interpreter, temp for JIT code.
 |.define TMPD,		0(sp)
 |
@@ -117,65 +117,65 @@
 |//-----------------------------------------------------------------------
 |
 |.macro saveregs
-|  addi sp, sp, -CFRAME_SPACE
+|  addiw sp, sp, -CFRAME_SPACE
 |.if FPU
-|  fsd f27, SAVE_FPR_+11*4(sp)
-|  fsd f26, SAVE_FPR_+10*4(sp)
-|  fsd f25, SAVE_FPR_+9*4(sp)
-|  fsd f24, SAVE_FPR_+8*4(sp)
-|  fsd f23, SAVE_FPR_+7*4(sp)
-|  fsd f22, SAVE_FPR_+6*4(sp)
-|  fsd f21, SAVE_FPR_+5*4(sp)
-|  fsd f20, SAVE_FPR_+4*4(sp)
-|  fsd f19, SAVE_FPR_+3*4(sp)
-|  fsd f18, SAVE_FPR_+2*4(sp)
-|  fsd f9, SAVE_FPR_+1*4(sp)
-|  fsd f8, SAVE_FPR_+0*4(sp)
+|  fsd f27, SAVE_FPR_+11*8(sp)
+|  fsd f26, SAVE_FPR_+10*8(sp)
+|  fsd f25, SAVE_FPR_+9*8(sp)
+|  fsd f24, SAVE_FPR_+8*8(sp)
+|  fsd f23, SAVE_FPR_+7*8(sp)
+|  fsd f22, SAVE_FPR_+6*8(sp)
+|  fsd f21, SAVE_FPR_+5*8(sp)
+|  fsd f20, SAVE_FPR_+4*8(sp)
+|  fsd f19, SAVE_FPR_+3*8(sp)
+|  fsd f18, SAVE_FPR_+2*8(sp)
+|  fsd f9, SAVE_FPR_+1*8(sp)
+|  fsd f8, SAVE_FPR_+0*8(sp)
 |.endif
-|  sw ra, SAVE_GPR_+12*4(sp)
-|  sw r27, SAVE_GPR_+11*4(sp)
-|  sw r26, SAVE_GPR_+10*4(sp)
-|  sw r25, SAVE_GPR_+9*4(sp)
-|  sw r24, SAVE_GPR_+8*4(sp)
-|  sw r23, SAVE_GPR_+7*4(sp)
-|  sw r22, SAVE_GPR_+6*4(sp)
-|  sw r21, SAVE_GPR_+5*4(sp)
-|  sw r20, SAVE_GPR_+4*4(sp)
-|  sw r19, SAVE_GPR_+3*4(sp)
-|  sw r18, SAVE_GPR_+2*4(sp)
-|  sw r9, SAVE_GPR_+1*4(sp)
-|  sw r8, SAVE_GPR_+0*4(sp)
+|  sd ra, SAVE_GPR_+12*8(sp)
+|  sd r27, SAVE_GPR_+11*8(sp)
+|  sd r26, SAVE_GPR_+10*8(sp)
+|  sd r25, SAVE_GPR_+9*8(sp)
+|  sd r24, SAVE_GPR_+8*8(sp)
+|  sd r23, SAVE_GPR_+7*8(sp)
+|  sd r22, SAVE_GPR_+6*8(sp)
+|  sd r21, SAVE_GPR_+5*8(sp)
+|  sd r20, SAVE_GPR_+4*8(sp)
+|  sd r19, SAVE_GPR_+3*8(sp)
+|  sd r18, SAVE_GPR_+2*8(sp)
+|  sd r9, SAVE_GPR_+1*8(sp)
+|  sd r8, SAVE_GPR_+0*8(sp)
 |.endmacro
 |
 |.macro restoreregs_ret
-|  lw ra, SAVE_GPR_+12*4(sp)
-|  lw r27, SAVE_GPR_+11*4(sp)
-|  lw r26, SAVE_GPR_+10*4(sp)
-|  lw r25, SAVE_GPR_+9*4(sp)
-|  lw r24, SAVE_GPR_+8*4(sp)
-|  lw r23, SAVE_GPR_+7*4(sp)
-|  lw r22, SAVE_GPR_+6*4(sp)
-|  lw r21, SAVE_GPR_+5*4(sp)
-|  lw r20, SAVE_GPR_+4*4(sp)
-|  lw r19, SAVE_GPR_+3*4(sp)
-|  lw r18, SAVE_GPR_+2*4(sp)
-|  lw r9, SAVE_GPR_+1*4(sp)
-|  lw r8, SAVE_GPR_+0*4(sp)
+|  ld ra, SAVE_GPR_+12*8(sp)
+|  ld r27, SAVE_GPR_+11*8(sp)
+|  ld r26, SAVE_GPR_+10*8(sp)
+|  ld r25, SAVE_GPR_+9*8(sp)
+|  ld r24, SAVE_GPR_+8*8(sp)
+|  ld r23, SAVE_GPR_+7*8(sp)
+|  ld r22, SAVE_GPR_+6*8(sp)
+|  ld r21, SAVE_GPR_+5*8(sp)
+|  ld r20, SAVE_GPR_+4*8(sp)
+|  ld r19, SAVE_GPR_+3*8(sp)
+|  ld r18, SAVE_GPR_+2*8(sp)
+|  ld r9, SAVE_GPR_+1*8(sp)
+|  ld r8, SAVE_GPR_+0*8(sp)
 |.if FPU
-|  fld f27, SAVE_FPR_+11*4(sp)
-|  fld f26, SAVE_FPR_+10*4(sp)
-|  fld f25, SAVE_FPR_+9*4(sp)
-|  fld f24, SAVE_FPR_+8*4(sp)
-|  fld f23, SAVE_FPR_+7*4(sp)
-|  fld f22, SAVE_FPR_+6*4(sp)
-|  fld f21, SAVE_FPR_+5*4(sp)
-|  fld f20, SAVE_FPR_+4*4(sp)
-|  fld f19, SAVE_FPR_+3*4(sp)
-|  fld f18, SAVE_FPR_+2*4(sp)
-|  fld f9, SAVE_FPR_+1*4(sp)
-|  fld f8, SAVE_FPR_+0*4(sp)
+|  fld f27, SAVE_FPR_+11*8(sp)
+|  fld f26, SAVE_FPR_+10*8(sp)
+|  fld f25, SAVE_FPR_+9*8(sp)
+|  fld f24, SAVE_FPR_+8*8(sp)
+|  fld f23, SAVE_FPR_+7*8(sp)
+|  fld f22, SAVE_FPR_+6*8(sp)
+|  fld f21, SAVE_FPR_+5*8(sp)
+|  fld f20, SAVE_FPR_+4*8(sp)
+|  fld f19, SAVE_FPR_+3*8(sp)
+|  fld f18, SAVE_FPR_+2*8(sp)
+|  fld f9, SAVE_FPR_+1*8(sp)
+|  fld f8, SAVE_FPR_+0*8(sp)
 |.endif
-|  addi sp, sp, CFRAME_SPACE
+|  addiw sp, sp, CFRAME_SPACE
 |  jr ra
 |.endmacro
 |
@@ -213,10 +213,10 @@
 |
 |// Instruction decode.
 |.macro decode_OP1, dst, ins; andi dst, ins, 0xff; .endmacro
-|.macro decode_OP4a, dst, ins; andi dst, ins, 0xff; .endmacro
-|.macro decode_OP4b, dst; slli dst, dst, 2; .endmacro
-|.macro decode_RC4a, dst, ins; srli dst, ins, 14; .endmacro
-|.macro decode_RC4b, dst; andi dst, dst, 0x3fc; .endmacro
+|.macro decode_OP8a, dst, ins; andi dst, ins, 0xff; .endmacro
+|.macro decode_OP8b, dst; slli dst, dst, 2; .endmacro
+|.macro decode_RC8a, dst, ins; srli dst, ins, 14; .endmacro
+|.macro decode_RC8b, dst; andi dst, dst, 0x3fc; .endmacro
 |.macro decode_RD4b, dst; slli dst, dst, 2; .endmacro
 |.macro decode_RA8a, dst, ins; srli dst, ins, 5; .endmacro
 |.macro decode_RA8b, dst; andi dst, dst, 0x7f8; .endmacro
@@ -229,19 +229,19 @@
 |// Instruction fetch.
 |.macro ins_NEXT1
 |  lw INS, 0(PC)
-|   addi PC, PC, 4
+|   addiw PC, PC, 4
 |.endmacro
 |// Instruction decode+dispatch.
 |.macro ins_NEXT2
-|  decode_OP4a TMP1, INS
-|  decode_OP4b TMP1
-|  add TMP0, DISPATCH, TMP1
+|  decode_OP8a TMP1, INS
+|  decode_OP8b TMP1
+|  addw TMP0, DISPATCH, TMP1
 |   decode_RD8a RD, INS
-|  lw AT, 0(TMP0)
+|  ld AT, 0(TMP0)
 |   decode_RA8a RA, INS
 |   decode_RD8b RD
-|   decode_RA8b RA
 |  jr AT
+|   decode_RA8b RA
 |.endmacro
 |.macro ins_NEXT
 |  ins_NEXT1
@@ -275,22 +275,22 @@
 |// Call decode and dispatch.
 |.macro ins_callt
 |  // BASE = new base, RB = LFUNC/CFUNC, RC = nargs*8, FRAME_PC(BASE) = PC
-|  lw PC, LFUNC:RB->pc
+|  ld PC, LFUNC:RB->pc
 |  lw INS, 0(PC)
-|   addi PC, PC, 4
-|  decode_OP4a TMP1, INS
+|   addiw PC, PC, 4
+|  decode_OP8a TMP1, INS
 |   decode_RA8a RA, INS
-|  decode_OP4b TMP1
+|  decode_OP8b TMP1
 |   decode_RA8b RA
-|  add TMP0, DISPATCH, TMP1
-|  lw TMP0, 0(TMP0)
-|   add RA, RA, BASE
+|  addw TMP0, DISPATCH, TMP1
+|  ld TMP0, 0(TMP0)
+|   addw RA, RA, BASE
 |  jr TMP0
 |.endmacro
 |
 |.macro ins_call
 |  // BASE = new base, RB = LFUNC/CFUNC, RC = nargs*8, PC = caller PC
-|  sw PC, FRAME_PC(BASE)
+|  sd PC, FRAME_PC(BASE)
 |  ins_callt
 |.endmacro
 |
@@ -299,8 +299,8 @@
 |.macro branch_RD
 |  srli TMP0, RD, 1
 |  lui AT, (-(BCBIAS_J*4 >> 12)) & 0xfffff
-|  add TMP0, TMP0, AT
-|  add PC, PC, TMP0
+|  addw TMP0, TMP0, AT
+|  addw PC, PC, TMP0
 |.endmacro
 |
 |// Assumes DISPATCH is relative to GL.
@@ -327,12 +327,12 @@
 |
 |// Move table write barrier back. Overwrites mark and tmp.
 |.macro barrierback, tab, mark, tmp, target
-|  lw tmp, DISPATCH_GL(gc.grayagain)(DISPATCH)
+|  ld tmp, DISPATCH_GL(gc.grayagain)(DISPATCH)
 |   andi mark, mark, ~LJ_GC_BLACK & 255		// black2gray(tab)
-|  sw tab, DISPATCH_GL(gc.grayagain)(DISPATCH)
+|  sd tab, DISPATCH_GL(gc.grayagain)(DISPATCH)
 |   sb mark, tab->marked
-|  sw tmp, tab->gclist
 |  j target
+|  sd tmp, tab->gclist
 |.endmacro
 |
 |//-----------------------------------------------------------------------
@@ -354,11 +354,11 @@ static void build_subroutines(BuildCtx *ctx)
   |   li TMP1, LJ_TTRUE
   |
   |  // Return from pcall or xpcall fast func.
-  |  lw PC, FRAME_PC(TMP2)		// Fetch PC of previous frame.
+  |  ld PC, FRAME_PC(TMP2)		// Fetch PC of previous frame.
   |  mv BASE, TMP2			// Restore caller base.
   |  // Prepending may overwrite the pcall frame, so do it at the end.
-  |   sw TMP1, FRAME_PC(RA)		// Prepend true to results.
-  |   addi RA, RA, -8
+  |   sd TMP1, FRAME_PC(RA)		// Prepend true to results.
+  |   addiw RA, RA, -8
   |
   |->vm_returnc:
   |   addi RD, RD, 8			// RD = (nresults+1)*8.
@@ -374,14 +374,14 @@ static void build_subroutines(BuildCtx *ctx)
   |   li TMP2, -8
   |  xori AT, TMP0, FRAME_C
   |   and TMP2, PC, TMP2
-  |   sub TMP2, BASE, TMP2		// TMP2 = previous base.
+  |   subw TMP2, BASE, TMP2		// TMP2 = previous base.
   |  bnez AT, ->vm_returnp
   |
   |  addi TMP1, RD, -8
-  |   sw TMP2, L->base
+  |   sd TMP2, L->base
   |    li_vmstate C
   |   lw TMP2, SAVE_NRES
-  |   addi BASE, BASE, -8
+  |   addiw BASE, BASE, -8
   |    st_vmstate
   |   slli TMP2, TMP2, 3
   |  beqz TMP1, >2
@@ -389,7 +389,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  addi TMP1, TMP1, -8
   |   lw CRET2, HI(RA)
   |    lw CRET1, LO(RA)
-  |    addi RA, RA, 8
+  |    addiw RA, RA, 8
   |   sw CRET2, HI(BASE)
   |    sw CRET1, LO(BASE)
   |  addi BASE, BASE, 8
@@ -398,30 +398,30 @@ static void build_subroutines(BuildCtx *ctx)
   |2:
   |  bne TMP2, RD, >6
   |3:
-  |  sw BASE, L->top			// Store new top.
+  |  sd BASE, L->top			// Store new top.
   |
   |->vm_leave_cp:
-  |  lw TMP0, SAVE_CFRAME		// Restore previous C frame.
+  |  ld TMP0, SAVE_CFRAME		// Restore previous C frame.
   |   mv CRET1, r0			// Ok return status for vm_pcall.
-  |  sw TMP0, L->cframe
+  |  sd TMP0, L->cframe
   |
   |->vm_leave_unw:
   |  restoreregs_ret
   |
   |6:
-  |  lw TMP1, L->maxstack
+  |  ld TMP1, L->maxstack
   |  blt TMP2, RD, >7			// Less results wanted?
   |  // More results wanted. Check stack size and fill up results with nil.
   |  slt AT, BASE, TMP1
   |  beqz AT, >8
-  |  sw TISNIL, HI(BASE)
+  |  sd TISNIL, HI(BASE)
   |  addi RD, RD, 8
   |  addi BASE, BASE, 8
   |  j <2
   |
   |7:  // Less results wanted.
   |  sub TMP0, RD, TMP2
-  |  sub TMP0, BASE, TMP0		// Either keep top or shrink it.
+  |  subw TMP0, BASE, TMP0		// Either keep top or shrink it.
   |  beqz TMP2, <3			// LUA_MULTRET+1 case?
   |  mv BASE, TMP0
   |  j <3
@@ -447,9 +447,9 @@ static void build_subroutines(BuildCtx *ctx)
   |  mv sp, CARG1
   |  mv CRET1, CARG2
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
-  |  lw L, SAVE_L
+  |  ld L, SAVE_L
   |   li TMP0, ~LJ_VMST_C
-  |  lw GL:TMP1, L->glref
+  |  ld GL:TMP1, L->glref
   |  sw TMP0, GL:TMP1->vmstate
   |  j ->vm_leave_unw
   |
@@ -458,20 +458,20 @@ static void build_subroutines(BuildCtx *ctx)
   |  li AT, -4
   |  and sp, CARG1, AT
   |->vm_unwind_ff_eh:			// Landing pad for external unwinder.
-  |  lw L, SAVE_L
+  |  ld L, SAVE_L
   |     .FPU lui TMP3, 0x59c00		// TOBIT = 2^52 + 2^51 (float).
   |     li TISNUM, LJ_TISNUM		// Setup type comparison constants.
   |     li TISNIL, LJ_TNIL
-  |  lw BASE, L->base
-  |   lw DISPATCH, L->glref		// Setup pointer to dispatch table.
+  |  ld BASE, L->base
+  |   ld DISPATCH, L->glref		// Setup pointer to dispatch table.
   |     .FPU fmv.w.x TOBIT, TMP3
   |  li TMP1, LJ_TFALSE
   |    li_vmstate INTERP
-  |  lw PC, FRAME_PC(BASE)		// Fetch PC of previous frame.
+  |  ld PC, FRAME_PC(BASE)		// Fetch PC of previous frame.
   |     .FPU fcvt.d.s TOBIT, TOBIT
-  |  addi RA, BASE, -8			// Results start at BASE-8.
-  |   addi DISPATCH, DISPATCH, GG_G2DISP
-  |  sw TMP1, HI(RA)			// Prepend false to error message.
+  |  addiw RA, BASE, -8			// Results start at BASE-8.
+  |   addiw DISPATCH, DISPATCH, GG_G2DISP
+  |  sd TMP1, HI(RA)			// Prepend false to error message.
   |    st_vmstate
   |   li RD, 16				// 2 results: false + error message.
   |  j ->vm_returnc
@@ -486,21 +486,21 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |->vm_growstack_l:			// Grow stack for Lua function.
   |  // BASE = new base, RA = BASE+framesize*8, RC = nargs*8, PC = first PC
-  |  add RC, BASE, RC
-  |   sub RA, RA, BASE
-  |  sw BASE, L->base
-  |   addi PC, PC, 4			// Must point after first instruction.
-  |  sw RC, L->top
+  |  addw RC, BASE, RC
+  |   subw RA, RA, BASE
+  |  sd BASE, L->base
+  |   addiw PC, PC, 4			// Must point after first instruction.
+  |  sd RC, L->top
   |   srli CARG2, RA, 3
   |2:
   |  // L->base = new base, L->top = top
   |  mv CARG1, L
-  |   sw PC, SAVE_PC
+  |   sd PC, SAVE_PC
   |  jal extern lj_state_growstack	// (lua_State *L, int n)
-  |  lw BASE, L->base
-  |  lw RC, L->top
-  |  lw LFUNC:RB, FRAME_FUNC(BASE)
-  |  sub RC, RC, BASE
+  |  ld BASE, L->base
+  |  ld RC, L->top
+  |  ld LFUNC:RB, FRAME_FUNC(BASE)
+  |  subw RC, RC, BASE
   |  // BASE = new base, RB = LFUNC/CFUNC, RC = nargs*8, FRAME_PC(BASE) = PC
   |  ins_callt				// Just retry the call.
   |
@@ -512,34 +512,34 @@ static void build_subroutines(BuildCtx *ctx)
   |  // (lua_State *L, TValue *base, int nres1 = 0, ptrdiff_t ef = 0)
   |  saveregs
   |  mv L, CARG1
-  |    lw DISPATCH, L->glref		// Setup pointer to dispatch table.
+  |    ld DISPATCH, L->glref		// Setup pointer to dispatch table.
   |  mv BASE, CARG2
   |    lbu TMP1, L->status
-  |   sw L, SAVE_L
+  |   sd L, SAVE_L
   |  li PC, FRAME_CP
   |  addi TMP0, sp, CFRAME_RESUME
   |    addi DISPATCH, DISPATCH, GG_G2DISP
   |   sw r0, SAVE_NRES
   |   sw r0, SAVE_ERRF
-  |   sw CARG1, SAVE_PC		// Any value outside of bytecode is ok.
-  |   sw r0, SAVE_CFRAME
-  |   sw TMP0, L->cframe
+  |   sd CARG1, SAVE_PC		// Any value outside of bytecode is ok.
+  |   sd r0, SAVE_CFRAME
+  |   sd TMP0, L->cframe
   |    beqz TMP1, >3
   |
   |  // Resume after yield (like a return).
-  |  sw L, DISPATCH_GL(cur_L)(DISPATCH)
+  |  sd L, DISPATCH_GL(cur_L)(DISPATCH)
   |  mv RA, BASE
-  |   lw BASE, L->base
+  |   ld BASE, L->base
   |     li TISNUM, LJ_TISNUM		// Setup type comparison constants.
-  |   lw TMP1, L->top
-  |  lw PC, FRAME_PC(BASE)
+  |   ld TMP1, L->top
+  |  ld PC, FRAME_PC(BASE)
   |     .FPU lui TMP3, 0x59c00		// TOBIT = 2^52 + 2^51 (float).
-  |   sub RD, TMP1, BASE
+  |   subw RD, TMP1, BASE
   |     .FPU fmv.w.x TOBIT, TMP3
   |    sb r0, L->status
   |     .FPU fcvt.d.s TOBIT, TOBIT
   |    li_vmstate INTERP
-  |   addi RD, RD, 8
+  |   addiw RD, RD, 8
   |    st_vmstate
   |   mv MULTRES, RD
   |  andi TMP0, PC, FRAME_TYPE
@@ -560,27 +560,27 @@ static void build_subroutines(BuildCtx *ctx)
   |  li PC, FRAME_C
   |
   |1:  // Entry point for vm_pcall above (PC = ftype).
-  |  lw TMP1, L:CARG1->cframe
+  |  ld TMP1, L:CARG1->cframe
   |    mv L, CARG1
-  |   sw CARG3, SAVE_NRES
-  |    lw DISPATCH, L->glref		// Setup pointer to dispatch table.
-  |   sw CARG1, SAVE_L
+  |   sd CARG3, SAVE_NRES
+  |    ld DISPATCH, L->glref		// Setup pointer to dispatch table.
+  |   sd CARG1, SAVE_L
   |     mv BASE, CARG2
-  |    addi DISPATCH, DISPATCH, GG_G2DISP
-  |   sw CARG1, SAVE_PC		// Any value outside of bytecode is ok.
-  |  sw TMP1, SAVE_CFRAME
-  |  sw sp, L->cframe			// Add our C frame to cframe chain.
+  |    addiw DISPATCH, DISPATCH, GG_G2DISP
+  |   sd CARG1, SAVE_PC		// Any value outside of bytecode is ok.
+  |  sd TMP1, SAVE_CFRAME
+  |  sd sp, L->cframe			// Add our C frame to cframe chain.
   |
   |3:  // Entry point for vm_cpcall/vm_resume (BASE = base, PC = ftype).
-  |  sw L, DISPATCH_GL(cur_L)(DISPATCH)
-  |  lw TMP2, L->base			// TMP2 = old base (used in vmeta_call).
+  |  sd L, DISPATCH_GL(cur_L)(DISPATCH)
+  |  ld TMP2, L->base			// TMP2 = old base (used in vmeta_call).
   |     li TISNUM, LJ_TISNUM		// Setup type comparison constants.
   |     .FPU lui TMP3, 0x59c0		// TOBIT = 2^52 + 2^51 (float).
-  |   lw TMP1, L->top
+  |   ld TMP1, L->top
   |     .FPU fmv.w.x TOBIT, TMP3
-  |  add PC, PC, BASE
-  |   sub NARGS8:RC, TMP1, BASE
-  |  sub PC, PC, TMP2			// PC = frame delta + frame type
+  |  addw PC, PC, BASE
+  |   subw NARGS8:RC, TMP1, BASE
+  |  subw PC, PC, TMP2			// PC = frame delta + frame type
   |     .FPU fcvt.d.s TOBIT, TOBIT
   |    li_vmstate INTERP
   |     li TISNIL, LJ_TNIL
@@ -588,9 +588,9 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |->vm_call_dispatch:
   |  // TMP2 = old base, BASE = new base, RC = nargs*8, PC = caller PC
-  |  lw TMP0, FRAME_PC(BASE)
+  |  ld TMP0, FRAME_PC(BASE)
   |  li AT, LJ_TFUNC
-  |   lw LFUNC:RB, FRAME_FUNC(BASE)
+  |   ld LFUNC:RB, FRAME_FUNC(BASE)
   |  bne TMP0, AT, ->vmeta_call
   |
   |->vm_call_dispatch_f:
@@ -601,19 +601,19 @@ static void build_subroutines(BuildCtx *ctx)
   |  // (lua_State *L, lua_CFunction func, void *ud, lua_CPFunction cp)
   |  saveregs
   |  mv L, CARG1
-  |   lw TMP0, L:CARG1->stack
-  |  sw CARG1, SAVE_L
-  |   lw TMP1, L->top
-  |     lw DISPATCH, L->glref		// Setup pointer to dispatch table.
-  |  sw CARG1, SAVE_PC			// Any value outside of bytecode is ok.
-  |   sub TMP0, TMP0, TMP1		// Compute -savestack(L, L->top).
-  |    lw TMP1, L->cframe
-  |     addi DISPATCH, DISPATCH, GG_G2DISP
+  |   ld TMP0, L:CARG1->stack
+  |  sd CARG1, SAVE_L
+  |   ld TMP1, L->top
+  |     ld DISPATCH, L->glref		// Setup pointer to dispatch table.
+  |  sd CARG1, SAVE_PC			// Any value outside of bytecode is ok.
+  |   subw TMP0, TMP0, TMP1		// Compute -savestack(L, L->top).
+  |    ld TMP1, L->cframe
+  |     addiw DISPATCH, DISPATCH, GG_G2DISP
   |   sw TMP0, SAVE_NRES		// Neg. delta means cframe w/o frame.
   |  sw r0, SAVE_ERRF			// No error function.
-  |    sw TMP1, SAVE_CFRAME
-  |    sw sp, L->cframe			// Add our C frame to cframe chain.
-  |     sw L, DISPATCH_GL(cur_L)(DISPATCH)
+  |    sd TMP1, SAVE_CFRAME
+  |    sd sp, L->cframe			// Add our C frame to cframe chain.
+  |     sd L, DISPATCH_GL(cur_L)(DISPATCH)
   |  mv CFUNCADDR, CARG4
   |  jalr CARG4			// (lua_State *L, lua_CFunction func, void *ud)
   |  mv BASE, CRET1
@@ -632,30 +632,30 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |->cont_dispatch:
   |  // BASE = meta base, RA = resultptr, RD = (nresults+1)*8
-  |  lw TMP0, -16+LO(BASE)		// Continuation.
+  |  ld TMP0, -16+LO(BASE)		// Continuation.
   |   mv RB, BASE
   |   mv BASE, TMP2			// Restore caller BASE.
-  |    lw LFUNC:TMP1, FRAME_FUNC(TMP2)
+  |    ld LFUNC:TMP1, FRAME_FUNC(TMP2)
   |.if FFI
   |  sltiu AT, TMP0, 2
   |.endif
-  |     lw PC, -16+HI(RB)		// Restore PC from [cont|PC].
-  |   add TMP2, RA, RD
-  |    lw TMP1, LFUNC:TMP1->pc
+  |     ld PC, -16+HI(RB)		// Restore PC from [cont|PC].
+  |   addw TMP2, RA, RD
+  |    ld TMP1, LFUNC:TMP1->pc
   |.if FFI
   |  bnez AT, >1
   |.endif
-  |  sw TISNIL, -8+HI(TMP2)		// Ensure one valid arg.
+  |  sd TISNIL, -8+HI(TMP2)		// Ensure one valid arg.
   |  // BASE = base, RA = resultptr, RB = meta base
-  |  lw KBASE, PC2PROTO(k)(TMP1)
+  |  ld KBASE, PC2PROTO(k)(TMP1)
   |  jr TMP0				// Jump to continuation.
   |
   |.if FFI
   |1:
   |  bnez TMP0, >2	// cont = 1: return from FFI callback.
   |  // cont = 0: tailcall from C function.
-  |  addi TMP1, RB, -16
-  |  sub RC, TMP1, BASE
+  |  addiw TMP1, RB, -16
+  |  subw RC, TMP1, BASE
   |  j ->vm_call_tail
   |2:
   |  j ->cont_ffi_callback
@@ -663,22 +663,22 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |->cont_cat:				// RA = resultptr, RB = meta base
   |  lw INS, -4(PC)
-  |   addi CARG2, RB, -16
-  |  lw CARG6, HI(RA)
-  |    lw CARG5, LO(RA)
+  |   addiw CARG2, RB, -16
+  |  ld CARG6, HI(RA)
+  |    ld CARG5, LO(RA)
   |  decode_RB8a MULTRES, INS
   |   decode_RA8a RA, INS
   |  decode_RB8b MULTRES
   |   decode_RA8b RA
-  |  add TMP1, BASE, MULTRES
-  |   sw BASE, L->base
-  |   sub CARG3, CARG2, TMP1
+  |  addw TMP1, BASE, MULTRES
+  |   sd BASE, L->base
+  |   subw CARG3, CARG2, TMP1
   |  sw CARG6, HI(CARG2)
   |   sw CARG5, LO(CARG2)
   |  beq TMP1, CARG2, >1
   |  j ->BC_CAT_Z
   |1:
-  |  add RA, BASE, RA
+  |  addw RA, BASE, RA
   |  sw CARG6, HI(RA)
   |   sw CARG5, LO(RA)
   |  j ->cont_nop
@@ -686,17 +686,17 @@ static void build_subroutines(BuildCtx *ctx)
   |//-- Table indexing metamethods -----------------------------------------
   |
   |->vmeta_tgets1:
-  |  addi CARG3, DISPATCH, DISPATCH_GL(tmptv)
+  |  addiw CARG3, DISPATCH, DISPATCH_GL(tmptv)
   |  li TMP0, LJ_TSTR
   |  sw STR:RC, LO(CARG3)
   |  sw TMP0, HI(CARG3)
   |  j >1
   |
   |->vmeta_tgets:
-  |  addi CARG2, DISPATCH, DISPATCH_GL(tmptv)
+  |  addiw CARG2, DISPATCH, DISPATCH_GL(tmptv)
   |  li TMP0, LJ_TTAB
   |  sw TAB:RB, LO(CARG2)
-  |   addi CARG3, DISPATCH, DISPATCH_GL(tmptv2)
+  |   addiw CARG3, DISPATCH, DISPATCH_GL(tmptv2)
   |  sw TMP0, HI(CARG2)
   |   li TMP1, LJ_TSTR
   |   sw STR:RC, LO(CARG3)
@@ -704,15 +704,15 @@ static void build_subroutines(BuildCtx *ctx)
   |  j >1
   |
   |->vmeta_tgetb:			// TMP0 = index
-  |  addi CARG3, DISPATCH, DISPATCH_GL(tmptv)
+  |  addiw CARG3, DISPATCH, DISPATCH_GL(tmptv)
   |  sw TMP0, LO(CARG3)
   |  sw TISNUM, HI(CARG3)
   |
   |->vmeta_tgetv:
   |1:
   |  //load_got lj_meta_tget
-  |  sw BASE, L->base
-  |  sw PC, SAVE_PC
+  |  sd BASE, L->base
+  |  sd PC, SAVE_PC
   |  mv CARG1, L
   |  jal extern lj_meta_tget		// (lua_State *L, TValue *o, TValue *k)
   |  // Returns TValue * (finished) or NULL (metamethod).
@@ -727,10 +727,10 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |3:  // Call __index metamethod.
   |  // BASE = base, L->top = new base, stack = cont/func/t/k
-  |  lw BASE, L->top
+  |  ld BASE, L->top
   |  sw PC, -16+HI(BASE)		// [cont|PC]
-  |   sub PC, BASE, TMP1
-  |  lw LFUNC:RB, FRAME_FUNC(BASE)	// Guaranteed to be a function here.
+  |   subw PC, BASE, TMP1
+  |  ld LFUNC:RB, FRAME_FUNC(BASE)	// Guaranteed to be a function here.
   |   li NARGS8:RC, 16			// 2 args for func(t, k).
   |  j ->vm_call_dispatch_f
   |
@@ -747,14 +747,14 @@ static void build_subroutines(BuildCtx *ctx)
   |//-----------------------------------------------------------------------
   |
   |->vmeta_tsets1:
-  |  addi CARG3, DISPATCH, DISPATCH_GL(tmptv)
+  |  addiw CARG3, DISPATCH, DISPATCH_GL(tmptv)
   |  li TMP0, LJ_TSTR
   |  sw STR:RC, LO(CARG3)
   |  sw TMP0, HI(CARG3)
   |  j >1
   |
   |->vmeta_tsets:
-  |  addi CARG2, DISPATCH, DISPATCH_GL(tmptv)
+  |  addiw CARG2, DISPATCH, DISPATCH_GL(tmptv)
   |  li TMP0, LJ_TTAB
   |  sw TAB:RB, LO(CARG2)
   |   addi CARG3, DISPATCH, DISPATCH_GL(tmptv2)
@@ -765,14 +765,14 @@ static void build_subroutines(BuildCtx *ctx)
   |  j >1
   |
   |->vmeta_tsetb:			// TMP0 = index
-  |  addi CARG3, DISPATCH, DISPATCH_GL(tmptv)
+  |  addiw CARG3, DISPATCH, DISPATCH_GL(tmptv)
   |  sw TMP0, LO(CARG3)
   |  sw TISNUM, HI(CARG3)
   |
   |->vmeta_tsetv:
   |1:
-  |  sw BASE, L->base
-  |  sw PC, SAVE_PC
+  |  sd BASE, L->base
+  |  sd PC, SAVE_PC
   |  mv CARG1, L
   |  jal extern lj_meta_tset		// (lua_State *L, TValue *o, TValue *k)
   |  // Returns TValue * (finished) or NULL (metamethod).
@@ -787,10 +787,10 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |3:  // Call __newindex metamethod.
   |  // BASE = base, L->top = new base, stack = cont/func/t/k/(v)
-  |  addi TMP1, BASE, -FRAME_CONT
-  |  lw BASE, L->top
+  |  addiw TMP1, BASE, -FRAME_CONT
+  |  ld BASE, L->top
   |  sw PC, -16+HI(BASE)		// [cont|PC]
-  |   sub PC, BASE, TMP1
+  |   subw PC, BASE, TMP1
   |  lw LFUNC:RB, FRAME_FUNC(BASE)	// Guaranteed to be a function here.
   |  sw CARG6, 16+HI(BASE)		// Copy value to third argument.
   |   sw CARG5, 16+LO(BASE)
@@ -798,8 +798,8 @@ static void build_subroutines(BuildCtx *ctx)
   |  j ->vm_call_dispatch_f
   |
   |->vmeta_tsetr:
-  |  sw BASE, L->base
-  |  sw PC, SAVE_PC
+  |  sd BASE, L->base
+  |  sd PC, SAVE_PC
   |  mv CARG1, L
   |  jal extern lj_tab_setinth  // (lua_State *L, GCtab *t, int32_t key)
   |  // Returns TValue *.
@@ -812,8 +812,8 @@ static void build_subroutines(BuildCtx *ctx)
   |  mv CARG2, RA
   |  mv CARG3, RD
   |  addi PC, PC, -4
-  |  sw BASE, L->base
-  |  sw PC, SAVE_PC
+  |  sd BASE, L->base
+  |  sd PC, SAVE_PC
   |  decode_OP1 CARG4, INS
   |   mv CARG1, L
   |  jal extern lj_meta_comp	// (lua_State *L, TValue *o1, *o2, int op)
@@ -829,7 +829,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  slli RD, RD, 2
   |  add RD, RD, TMP1
   |  and RD, RD, TMP2
-  |  add PC, PC, RD
+  |  addw PC, PC, RD
   |->cont_nop:
   |  ins_next
   |
@@ -838,19 +838,19 @@ static void build_subroutines(BuildCtx *ctx)
   |   lw CARG6, HI(RA)
   |    lw CARG5, LO(RA)
   |  slli TMP1, TMP1, 3
-  |  add TMP1, BASE, TMP1
+  |  addw TMP1, BASE, TMP1
   |   sw CARG6, HI(TMP1)
   |    sw CARG5, LO(TMP1)
   |  j ->cont_nop
   |
   |->cont_condt:			// RA = resultptr
-  |  lw TMP0, HI(RA)
+  |  ld TMP0, HI(RA)
   |  sltiu AT, TMP0, LJ_TISTRUECOND
   |  neg TMP2, AT			// Branch if result is true.
   |  j <4
   |
   |->cont_condf:			// RA = resultptr
-  |  lw TMP0, HI(RA)
+  |  ld TMP0, HI(RA)
   |  sltiu AT, TMP0, LJ_TISTRUECOND
   |  addi TMP2, AT, -1		// Branch if result is false.
   |  j <4
@@ -861,8 +861,8 @@ static void build_subroutines(BuildCtx *ctx)
   |   mv CARG3, CARG3
   |   mv CARG4, TMP0
   |  addi PC, PC, -4
-  |   sw BASE, L->base
-  |   sw PC, SAVE_PC
+  |   sd BASE, L->base
+  |   sd PC, SAVE_PC
   |  mv CARG1, L
   |  jal extern lj_meta_equal  // (lua_State *L, GCobj *o1, *o2, int ne)
   |  // Returns 0/1 or TValue * (metamethod).
@@ -871,9 +871,9 @@ static void build_subroutines(BuildCtx *ctx)
   |->vmeta_equal_cd:
   |.if FFI
   |  mv CARG2, INS
-  |  addi PC, PC, -4
-  |   sw BASE, L->base
-  |   sw PC, SAVE_PC
+  |  addiw PC, PC, -4
+  |   sd BASE, L->base
+  |   sd PC, SAVE_PC
   |  mv CARG1, L
   |  jal extern lj_meta_equal_cd // (lua_State *L, BCIns op)
   |  // Returns 0/1 or TValue * (metamethod).
@@ -881,11 +881,11 @@ static void build_subroutines(BuildCtx *ctx)
   |.endif
   |
   |->vmeta_istype:
-  |  addi PC, PC, -4
-  |   sw BASE, L->base
+  |  addiw PC, PC, -4
+  |   sd BASE, L->base
   |   srli CARG2, RA, 3
   |   srli CARG3, RD, 3
-  |  sw PC, SAVE_PC
+  |  sd PC, SAVE_PC
   |  mv CARG1, L
   |  jal extern lj_meta_istype  // (lua_State *L, BCReg ra, BCReg tp)
   |  j ->cont_nop
@@ -897,9 +897,9 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |->vmeta_arith:
   |  decode_OP1 CARG5, INS
-  |   sw BASE, L->base
+  |   sd BASE, L->base
   |  mv CARG2, RA
-  |   sw PC, SAVE_PC
+  |   sd PC, SAVE_PC
   |  mv CARG3, RB
   |  mv CARG4, RC
   |  mv CARG1, L
@@ -911,10 +911,10 @@ static void build_subroutines(BuildCtx *ctx)
   |  // Call metamethod for binary op.
   |->vmeta_binop:
   |  // BASE = old base, CRET1 = new base, stack = cont/func/o1/o2
-  |  sub TMP1, CRET1, BASE
-  |   sw PC, -16+HI(CRET1)		// [cont|PC]
+  |  subw TMP1, CRET1, BASE
+  |   sd PC, -16+HI(CRET1)		// [cont|PC]
   |   mv TMP2, BASE
-  |  addi PC, TMP1, FRAME_CONT
+  |  addiw PC, TMP1, FRAME_CONT
   |   mv BASE, CRET1
   |  li NARGS8:RC, 16			// 2 args for func(o1, o2).
   |  j ->vm_call_dispatch
@@ -924,8 +924,8 @@ static void build_subroutines(BuildCtx *ctx)
 #if LJ_52
   |  mv MULTRES, CARG1
 #endif
-  |  sw BASE, L->base
-  |  sw PC, SAVE_PC
+  |  sd BASE, L->base
+  |  sd PC, SAVE_PC
   |  mv CARG1, L
   |  jal extern lj_meta_len    // (lua_State *L, TValue *o)
   |  // Returns NULL (retry) or TValue * (metamethod base).
@@ -941,37 +941,37 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |->vmeta_call:			// Resolve and call __call metamethod.
   |  // TMP2 = old base, BASE = new base, RC = nargs*8
-  |   sw TMP2, L->base			// This is the callers base!
-  |  addi CARG2, BASE, -8
-  |   sw PC, SAVE_PC
-  |  add CARG3, BASE, RC
+  |   sd TMP2, L->base			// This is the callers base!
+  |  addiw CARG2, BASE, -8
+  |   sd PC, SAVE_PC
+  |  addw CARG3, BASE, RC
   |   mv MULTRES, NARGS8:RC
   |  mv CARG1, L
   |  jal extern lj_meta_call	// (lua_State *L, TValue *func, TValue *top)
-  |  lw LFUNC:RB, FRAME_FUNC(BASE)	// Guaranteed to be a function here.
-  |   addi NARGS8:RC, MULTRES, 8	// Got one more argument now.
+  |  ld LFUNC:RB, FRAME_FUNC(BASE)	// Guaranteed to be a function here.
+  |   addiw NARGS8:RC, MULTRES, 8	// Got one more argument now.
   |  ins_call
   |
   |->vmeta_callt:			// Resolve __call for BC_CALLT.
   |  // BASE = old base, RA = new base, RC = nargs*8
-  |   sw BASE, L->base
-  |  addi CARG2, RA, -8
-  |   sw PC, SAVE_PC
-  |  add CARG3, RA, RC
+  |   sd BASE, L->base
+  |  addiw CARG2, RA, -8
+  |   sd PC, SAVE_PC
+  |  addw CARG3, RA, RC
   |   mv MULTRES, NARGS8:RC
   |  mv CARG1, L
   |  jal extern lj_meta_call	// (lua_State *L, TValue *func, TValue *top)
-  |  lw TMP1, FRAME_PC(BASE)
-  |   lw LFUNC:RB, FRAME_FUNC(RA)	// Guaranteed to be a function here.
+  |  ld TMP1, FRAME_PC(BASE)
+  |   ld LFUNC:RB, FRAME_FUNC(RA)	// Guaranteed to be a function here.
   |   addi NARGS8:RC, MULTRES, 8	// Got one more argument now.
   |  j ->BC_CALLT_Z
   |
   |//-- Argument coercion for 'for' statement ------------------------------
   |
   |->vmeta_for:
-  |   sw BASE, L->base
+  |   sd BASE, L->base
   |  mv CARG2, RA
-  |   sw PC, SAVE_PC
+  |   sd PC, SAVE_PC
   |  mv MULTRES, INS
   |   mv CARG1, L
   |  jal extern lj_meta_for	// (lua_State *L, TValue *base)
@@ -1044,8 +1044,8 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |// Inlined GC threshold check. Caveat: uses TMP0 and TMP1 and has delay slot!
   |.macro ffgccheck
-  |  lw TMP0, DISPATCH_GL(gc.total)(DISPATCH)
-  |  lw TMP1, DISPATCH_GL(gc.threshold)(DISPATCH)
+  |  ld TMP0, DISPATCH_GL(gc.total)(DISPATCH)
+  |  ld TMP1, DISPATCH_GL(gc.threshold)(DISPATCH)
   |  blt TMP0, TMP1, >1
   |  jal ->fff_gcstep
   |1:
@@ -1092,20 +1092,20 @@ static void build_subroutines(BuildCtx *ctx)
   |  li AT, LJ_TTAB
   |   bne CARG2, AT, >6
   |1:  // Field metatable must be at same offset for GCtab and GCudata!
-  |  lw TAB:CARG1, TAB:CARG1->metatable
+  |  ld TAB:CARG1, TAB:CARG1->metatable
   |2:
-  |  lw STR:RC, DISPATCH_GL(gcroot[GCROOT_MMNAME+MM_metatable])(DISPATCH)
+  |  ld STR:RC, DISPATCH_GL(gcroot[GCROOT_MMNAME+MM_metatable])(DISPATCH)
   |   li CARG2, LJ_TNIL
   |  beqz TAB:CARG1, ->fff_restv
-  |  lw TMP0, TAB:CARG1->hmask
+  |  ld TMP0, TAB:CARG1->hmask
   |   li CARG2, LJ_TTAB		// Use metatable as default result.
-  |  lw TMP1, STR:RC->sid
-  |  lw NODE:TMP2, TAB:CARG1->node
+  |  ld TMP1, STR:RC->sid
+  |  ld NODE:TMP2, TAB:CARG1->node
   |  and TMP1, TMP1, TMP0		// idx = str->sid & tab->hmask
   |  slli TMP0, TMP1, 5
   |  slli TMP1, TMP1, 3
-  |  sub TMP1, TMP0, TMP1
-  |  add NODE:TMP2, NODE:TMP2, TMP1	// node = tab->node + (idx*32-idx*8)
+  |  subw TMP1, TMP0, TMP1
+  |  addw NODE:TMP2, NODE:TMP2, TMP1	// node = tab->node + (idx*32-idx*8)
   |  li AT, LJ_TSTR
   |3:  // Rearranged logic, because we expect _not_ to find the key.
   |  lw CARG4, offsetof(Node, key)+HI(NODE:TMP2)
@@ -1834,7 +1834,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  lw TMP0, SBUF:CARG1->b
   |   sw L, SBUF:CARG1->L
   |   sw BASE, L->base
-  |  sw TMP0, SBUF:CARG1->p
+  |  sw TMP0, SBUF:CARG1->w
   |  sw PC, SAVE_PC
   |  jal extern lj_buf_putstr_ .. name
   |  jal extern lj_buf_tostr
@@ -2048,8 +2048,8 @@ static void build_subroutines(BuildCtx *ctx)
   |  lw BASE, L->base
   |4:  // Re-dispatch to static ins.
   |  lw INS, -4(PC)
-  |  decode_OP4a TMP1, INS
-  |  decode_OP4b TMP1
+  |  decode_OP8a TMP1, INS
+  |  decode_OP8b TMP1
   |  add TMP0, DISPATCH, TMP1
   |   decode_RD8a RD, INS
   |  lw AT, GG_DISP2STATIC(TMP0)
@@ -3278,9 +3278,9 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  decode_RB8a RB, INS
     |  decode_RB8b RB
     |  add CARG2, BASE, RB
-    |   decode_RC4a RC, INS
+    |   decode_RC8a RC, INS
     |  lw TMP0, HI(CARG2)
-    |   decode_RC4b RC
+    |   decode_RC8b RC
     |  li AT, LJ_TTAB
     |   lw TAB:RB, LO(CARG2)
     |   sub CARG3, KBASE, RC
@@ -3445,9 +3445,9 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  decode_RB8a RB, INS
     |  decode_RB8b RB
     |  add CARG2, BASE, RB
-    |   decode_RC4a RC, INS
+    |   decode_RC8a RC, INS
     |  lw TMP0, HI(CARG2)
-    |   decode_RC4b RC
+    |   decode_RC8b RC
     |  li AT, LJ_TTAB
     |   sub CARG3, KBASE, RC
     |    lw TAB:RB, LO(CARG2)
@@ -3760,6 +3760,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |.if JIT
     |  // NYI: add hotloop, record BC_ITERN.
     |.endif
+    |->vm_IITERN:
     |  add RA, BASE, RA
     |  lw TAB:RB, -16+LO(RA)
     |  lw RC, -8+LO(RA)			// Get index from control var.

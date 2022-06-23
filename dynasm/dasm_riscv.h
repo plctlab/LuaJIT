@@ -151,14 +151,6 @@ void dasm_setup(Dst_DECL, const void *actionlist)
   }
 }
 
-static int dasm_imms(int n)
-{
-  if (n >= -2048 && n < 2048)
-    return n;
-  else
-    return 4096;
-}
-
 #ifdef DASM_CHECKS
 #define CK(x, st) \
   do { if (!(x)) { \
@@ -234,7 +226,8 @@ void dasm_put(Dst_DECL, int start, ...)
 	pl = D->pclabels + n; CKPL(pc, PC);
       putlabel:
 	n = *pl;  /* n > 0: Collapse rel chain and replace with label pos. */
-	while (n > 0) { int *pb = DASM_POS2PTR(D, n); n = *pb; *pb = pos; }
+	while (n > 0) { int *pb = DASM_POS2PTR(D, n); n = *pb; *pb = pos; 
+  }
 	*pl = -pos;  /* Label exists now. */
 	b[pos++] = ofs;  /* Store pass1 offset estimate. */
 	break;
@@ -252,7 +245,10 @@ void dasm_put(Dst_DECL, int start, ...)
 	b[pos++] = n;
 	break;
       case DASM_IMMS:
-        CK(dasm_imms(n) != 4096, RANGE_I);
+        if((n >= -2048 && n < 2048))
+          CK(true, RANGE_I);
+        else
+          CK(false, RANGE_I);
 	b[pos++] = n;
 	break;
       }
@@ -312,8 +308,7 @@ int dasm_link(Dst_DECL, size_t *szp)
 	case DASM_ALIGN: ofs -= (b[pos++] + ofs) & (ins & 255); break;
 	case DASM_REL_LG: case DASM_REL_PC: pos++; break;
 	case DASM_LABEL_LG: case DASM_LABEL_PC: b[pos++] += ofs; break;
-	case DASM_IMM: case DASM_IMMS:
-	  pos++; break;
+	case DASM_IMM: case DASM_IMMS: pos++; break;
 	}
       }
       stop: (void)0;

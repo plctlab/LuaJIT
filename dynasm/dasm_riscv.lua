@@ -8,8 +8,8 @@ local riscv = riscv
 
 -- Module information:
 local _info = {
-  arch =	"riscv",
-  description =	"DynASM RISCV module",
+  arch =	riscv64 and "riscv64" or "riscv",
+  description =	"DynASM RISCV32/RISCV64 module",
   version =	"1.4.0",
   vernum =	 10400,
   release =	"2016-05-24",
@@ -38,10 +38,9 @@ local wline, werror, wfatal, wwarn
 -- Action name list.
 -- CHECK: Keep this in sync with the C code!
 local action_names = {
-  -- no args, no buffer pos, terminal action:
   "STOP", "SECTION", "ESC", "REL_EXT",
   "ALIGN", "REL_LG", "LABEL_LG",
-  "REL_PC", "LABEL_PC", "IMM", "IMMS"
+  "REL_PC", "LABEL_PC", "IMM", "IMMS",
 }
 
 -- Maximum number of section buffer positions for dasm_put().
@@ -226,7 +225,7 @@ end
 
 ------------------------------------------------------------------------------
 
--- Template strings for MIPS instructions.
+-- Template strings for RISCV instructions.
 local map_op = {
 
   -- RV32I
@@ -257,6 +256,21 @@ local map_op = {
   sra_3 = "40005033DRr",
   or_3 = "00006033DRr",
   and_3 = "00007033DRr",
+
+  -- RV64I
+  lwu_2 = riscv64 and "00006003DL",
+  ld_2 = riscv64 and "00003003DL",
+  sd_2 = riscv64 and "00003023rS",
+  addiw_3 = riscv64 and "0000001bDRI",
+  slliw_3 = "0000101bDRi",
+  srliw_3 = "0000501bDRi",
+  sraiw_3 = "4000501bDRi",
+  addw_3 = "0000003bDRr",
+  subw_3 = "4000003bDRr",
+  sllw_3 = "0000103bDRr",
+  srlw_3 = "0000503bDRr",
+  sraw_3 = "4000503bDRr",
+
 
   lb_2 = "00000003DL",
   lh_2 = "00001003DL",
@@ -310,6 +324,13 @@ local map_op = {
   rem_3 = "02006033DRr",
   remu_3 = "02007033DRr",
 
+  -- RV64M
+  mulw_3 = riscv64 and "0200003bDRr",
+  divw_3 = riscv64 and "0200403bDRr",
+  divuw_3 = riscv64 and "0200503bDRr",
+  remw_3 = riscv64 and "0200603bDRr",
+  remuw_3 = riscv64 and "0200703bDRr",
+
   -- RV32F
   ["flw_2"] = "00002007FL",
   ["fsw_2"] = "00002027gS",
@@ -337,6 +358,12 @@ local map_op = {
   ["fcvt.s.w_2"] = "d0000053FR",
   ["fcvt.s.wu_2"] = "d0100053FR",
   ["fmv.w.x_2"] = "f0000053FR",
+
+  -- RV64F
+  ["fcvt.l.s_2"] = "d0200053FR",
+  ["fcvt.lu.s_2"] = "d0300053FR",
+  ["fcvt.s.l_2"] = "e0200053FR",
+  ["fcvt.s.lu_2"] = "e0300053FR",
 
   -- RV32D
   ["fld_2"] = "00003007FL",
@@ -383,6 +410,14 @@ local map_op = {
   ["fcvt.wu.d_3"] = "c2100053DGM",
   ["fcvt.d.w_3"] = "d2000053FRM",
   ["fcvt.d.wu_3"] = "d2100053FRM",
+
+  -- RV64D
+  ["fcvt.l.d_3"] = "c2200053DGM",
+  ["fcvt.lu.d_3"] = "c2300053DGM",
+  ["fmv.x.d_2"] = "e2000053FR",
+  ["fcvt.d.l_3"] = "d2200053DGM",
+  ["fcvt.d.lu_3"] = "d2300053DGM",
+  ["fmv.d.x_2"] = "f2000053FR",
 
 }
 
