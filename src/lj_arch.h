@@ -31,10 +31,8 @@
 #define LUAJIT_ARCH_mips32	6
 #define LUAJIT_ARCH_MIPS64	7
 #define LUAJIT_ARCH_mips64	7
-#define LUAJIT_ARCH_RISCV32	8
-#define LUAJIT_ARCH_riscv32	8
-#define LUAJIT_ARCH_RISCV64	9
-#define LUAJIT_ARCH_riscv64	9
+#define LUAJIT_ARCH_riscv64	8
+#define LUAJIT_ARCH_RISCV64	8
 
 /* Target OS. */
 #define LUAJIT_OS_OTHER		0
@@ -69,9 +67,7 @@
 #define LUAJIT_TARGET	LUAJIT_ARCH_MIPS64
 #elif defined(__mips__) || defined(__mips) || defined(__MIPS__) || defined(__MIPS)
 #define LUAJIT_TARGET	LUAJIT_ARCH_MIPS32
-#elif defined(__riscv) && __riscv_xlen == 32
-#define LUAJIT_TARGET LUAJIT_ARCH_RISCV32
-#elif defined(__riscv) && __riscv_xlen == 64
+#elif (defined(__riscv) || defined(__riscv__)) && __riscv_xlen == 64
 #define LUAJIT_TARGET LUAJIT_ARCH_RISCV64
 #else
 #error "Architecture not supported (in this version), see: https://luajit.org/status.html#architectures"
@@ -447,9 +443,6 @@
 #define LJ_ARCH_VERSION		10
 #endif
 
-#elif LUAJIT_TARGET == LUAJIT_ARCH_RISCV32
-#error "No support for RISC-V 32"
-
 #elif LUAJIT_TARGET == LUAJIT_ARCH_RISCV64
 #if defined(__riscv_float_abi_double)
 
@@ -566,9 +559,6 @@
 #elif LJ_TARGET_RISCV
 #if !defined(__riscv_float_abi_double)
 #error "Only RISC-V 64 double float supported for now"
-#endif
-#if defined(__riscv_compressed)
-#error "Compressed instructions not supported for now"
 #endif
 #endif
 #endif

@@ -67,7 +67,7 @@ static int collect_reloc(BuildCtx *ctx, uint8_t *addr, int idx, int type);
 #include "../dynasm/dasm_ppc.h"
 #elif LJ_TARGET_MIPS
 #include "../dynasm/dasm_mips.h"
-#elif LJ_TARGET_RISCV32 || LJ_TARGET_RISCV64
+#elif LJ_TARGET_RISCV64
 #include "../dynasm/dasm_riscv.h"
 #else
 #error "No support for this architecture (yet)"
