@@ -1540,14 +1540,16 @@ static void asm_min_max(ASMState *as, IRIns *ir, int ismax)
     if (as->flags & JIT_F_RVZbb) {
       emit_ds1s2(as, ismax ? RISCVI_MAX : RISCVI_MIN, dest, left, right);
     } else {
-      if (as->flags & JIT_F_RVXThead) {
+      if ((as->flags & JIT_F_RVZicond) || (as->flags & JIT_F_RVXThead)) {
+  RISCVIns mveqz = (as->flags & JIT_F_RVZicond) ? RISCVI_CZERO_NEZ : RISCVI_TH_MVEQZ,
+           mvnez = (as->flags & JIT_F_RVZicond) ? RISCVI_CZERO_EQZ : RISCVI_TH_MVNEZ;
   if (left == right) {
     if (dest != left) emit_mv(as, dest, left);
   } else {
     if (dest == left) {
-	    emit_ds1s2(as, RISCVI_TH_MVNEZ, dest, right, RID_TMP);
+	    emit_ds1s2(as, mvnez, dest, right, RID_TMP);
     } else {
-	    emit_ds1s2(as, RISCVI_TH_MVEQZ, dest, left, RID_TMP);
+	    emit_ds1s2(as, mveqz, dest, left, RID_TMP);
 	    if (dest != right) emit_mv(as, dest, right);
     }
   }

@@ -684,6 +684,20 @@ static int riscv_zbb()
 #endif
 }
 
+static int riscv_zicond()
+{
+#if defined(__riscv_zicond)
+  /* Don't bother checking for Zicond -- would crash before getting here. */
+  return 1;
+#elif defined(__GNUC__)
+  /* czero.eqz zero, zero, zero; */
+  __asm__(".4byte 0x0e005033");
+  return 1;
+#else
+  return 0;
+#endif
+}
+
 static int riscv_xthead()
 {
 #if defined(__GNUC__)
@@ -786,6 +800,7 @@ static uint32_t jit_cpudetect(void)
   flags |= riscv_probe(riscv_compressed, JIT_F_RVC);
   flags |= riscv_probe(riscv_zba, JIT_F_RVZba);
   flags |= riscv_probe(riscv_zbb, JIT_F_RVZbb);
+  flags |= riscv_probe(riscv_zicond, JIT_F_RVZicond);
   flags |= riscv_probe(riscv_xthead, JIT_F_RVXThead);
   sigaction(SIGILL, &old, NULL);
 

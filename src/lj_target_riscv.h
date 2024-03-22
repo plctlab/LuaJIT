@@ -456,6 +456,10 @@ typedef enum RISCVIns {
 #endif
   /* NYI: Zbc, Zbs */
 
+  /* --- Zicond --- */
+  RISCVI_CZERO_EQZ = 0x0e005033,
+  RISCVI_CZERO_NEZ = 0x0e007033,
+
   /* TBD: RVV?, RVP?, RVJ? */
 
   /* --- XThead* --- */
