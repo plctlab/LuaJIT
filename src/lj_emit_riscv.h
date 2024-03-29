@@ -101,7 +101,7 @@ static void emit_roti(ASMState *as, RISCVIns riscvi, Reg rd, Reg rs1, Reg tmp,
                        int32_t shamt)
 {
   if (as->flags & JIT_F_RVZbb || as->flags & JIT_F_RVXThead) {
-    if (as->flags & JIT_F_RVXThead) switch (riscvi) {
+    if (!(as->flags & JIT_F_RVZbb)) switch (riscvi) {
       case RISCVI_RORI: riscvi = RISCVI_TH_SRRI; break;
       case RISCVI_RORIW: riscvi = RISCVI_TH_SRRIW; break;
       default: lj_assertA(0, "invalid roti op"); break;
