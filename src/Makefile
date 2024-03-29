@@ -279,7 +279,6 @@ endif
 endif
 endif
 endif
-endif
 
 ifneq (,$(findstring LJ_TARGET_PS3 1,$(TARGET_TESTARCH)))
   TARGET_SYS= PS3
