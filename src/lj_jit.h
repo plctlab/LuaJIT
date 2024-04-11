@@ -75,7 +75,7 @@
 #define JIT_F_RVZicond		(JIT_F_CPU << 3)
 #define JIT_F_RVXThead		(JIT_F_CPU << 4)
 
-#define JIT_F_CPUSTRING		"\003RVC\003Zba\003Zbb\006XThead"
+#define JIT_F_CPUSTRING		"\003RVC\003Zba\003Zbb\006Zicond\006XThead"
 
 #else
 
