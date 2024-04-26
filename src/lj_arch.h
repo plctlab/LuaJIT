@@ -444,7 +444,6 @@
 #endif
 
 #elif LUAJIT_TARGET == LUAJIT_ARCH_RISCV64
-#if defined(__riscv_float_abi_double)
 
 #define LJ_ARCH_NAME		"riscv64"
 #define LJ_ARCH_BITS		64
@@ -459,10 +458,6 @@
 #define LJ_TARGET_MASKROT	1
 #define LJ_TARGET_UNIFYROT	2	/* Want only IR_BROR, no ROLI */
 #define LJ_ARCH_NUMMODE		LJ_NUMMODE_DUAL
-
-#else
-#error "No support for RISC-V 64 Soft-float/Single-float"
-#endif
 
 #else
 #error "No target architecture defined"
