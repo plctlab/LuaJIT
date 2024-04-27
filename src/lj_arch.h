@@ -456,7 +456,6 @@
         AUIPC+JALR +-2^31 = +-2GB, leave 1 bit to avoid AUIPC corner case */
 #define LJ_TARGET_MASKSHIFT	1
 #define LJ_TARGET_MASKROT	1
-#define LJ_TARGET_UNIFYROT	2	/* Want only IR_BROR, no ROLI */
 #define LJ_ARCH_NUMMODE		LJ_NUMMODE_DUAL
 
 #else

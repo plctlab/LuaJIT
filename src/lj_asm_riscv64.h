@@ -1487,8 +1487,13 @@ static void asm_bitshift(ASMState *as, IRIns *ir, RISCVIns riscvi, RISCVIns risc
       case RISCVI_SRAIW: case RISCVI_SLLIW: case RISCVI_SRLIW:
         emit_dsshamt(as, riscvik, dest, left, shift);
         break;
-      case RISCVI_RORI: case RISCVI_RORIW:
-        emit_roti(as, riscvik, dest, left, RID_TMP, shift);
+      case RISCVI_ADDI: shift = (-shift) & shmsk;
+      case RISCVI_RORI:
+        emit_roti(as, RISCVI_RORI, dest, left, RID_TMP, shift);
+        break;
+      case RISCVI_ADDIW: shift = (-shift) & shmsk;
+      case RISCVI_RORIW:
+        emit_roti(as, RISCVI_RORIW, dest, left, RID_TMP, shift);
         break;
       default:
         lj_assertA(0, "bad shift instruction");
@@ -1521,7 +1526,10 @@ static void asm_bitshift(ASMState *as, IRIns *ir, RISCVIns riscvi, RISCVIns risc
 #define asm_bsar(as, ir)	(irt_is64(ir->t) ? \
   asm_bitshift(as, ir, RISCVI_SRA, RISCVI_SRAI) : \
   asm_bitshift(as, ir, RISCVI_SRAW, RISCVI_SRAIW))
-#define asm_brol(as, ir)	lj_assertA(0, "unexpected BROL")
+#define asm_brol(as, ir)	(irt_is64(ir->t) ? \
+  asm_bitshift(as, ir, RISCVI_ROL, RISCVI_ADDI) : \
+  asm_bitshift(as, ir, RISCVI_ROLW, RISCVI_ADDIW))
+  // ROLI -> ADDI, ROLIW -> ADDIW; Hacky but works.
 #define asm_bror(as, ir)	(irt_is64(ir->t) ? \
   asm_bitshift(as, ir, RISCVI_ROR, RISCVI_RORI) : \
   asm_bitshift(as, ir, RISCVI_RORW, RISCVI_RORIW))
