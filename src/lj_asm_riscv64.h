@@ -603,8 +603,12 @@ static void asm_tvstore64(ASMState *as, Reg base, int32_t ofs, IRRef ref)
     Reg type = ra_allock(as, (int64_t)irt_toitype(ir->t) << 47, allow);
     emit_lso(as, RISCVI_SD, RID_TMP, base, ofs);
     if (irt_isinteger(ir->t)) {
-      emit_ds1s2(as, RISCVI_ADD, RID_TMP, RID_TMP, type);
-      emit_ext(as, RISCVI_ZEXT_W, RID_TMP, src);
+      if (as->flags & JIT_F_RVZba) {
+  emit_ds1s2(as, RISCVI_ADD_UW, RID_TMP, src, type);
+      } else {
+  emit_ds1s2(as, RISCVI_ADD, RID_TMP, RID_TMP, type);
+  emit_ext(as, RISCVI_ZEXT_W, RID_TMP, src);
+      }
     } else {
       emit_ds1s2(as, RISCVI_ADD, RID_TMP, src, type);
     }
@@ -1018,10 +1022,14 @@ static void asm_ahustore(ASMState *as, IRIns *ir)
     emit_lso(as, RISCVI_SD, tmp, idx, ofs);
     if (ra_hasreg(src)) {
       if (irt_isinteger(ir->t)) {
-	emit_ds1s2(as, RISCVI_ADD, tmp, tmp, type);
-  emit_ext(as, RISCVI_ZEXT_W, tmp, src);
+  if (as->flags & JIT_F_RVZba) {
+    emit_ds1s2(as, RISCVI_ADD_UW, tmp, src, type);
+  } else {
+    emit_ds1s2(as, RISCVI_ADD, tmp, tmp, type);
+    emit_ext(as, RISCVI_ZEXT_W, tmp, src);
+  }
       } else {
-	emit_ds1s2(as, RISCVI_ADD, tmp, src, type);
+  emit_ds1s2(as, RISCVI_ADD, tmp, src, type);
       }
     }
   }
