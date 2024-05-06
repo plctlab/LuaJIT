@@ -1556,31 +1556,39 @@ static void asm_min_max(ASMState *as, IRIns *ir, int ismax)
     if (as->flags & JIT_F_RVZbb) {
       emit_ds1s2(as, ismax ? RISCVI_MAX : RISCVI_MIN, dest, left, right);
     } else {
-      if ((as->flags & JIT_F_RVZicond) || (as->flags & JIT_F_RVXThead)) {
-  RISCVIns mveqz = (as->flags & JIT_F_RVZicond) ? RISCVI_CZERO_NEZ : RISCVI_TH_MVEQZ,
-           mvnez = (as->flags & JIT_F_RVZicond) ? RISCVI_CZERO_EQZ : RISCVI_TH_MVNEZ;
+      if (as->flags & JIT_F_RVXThead) {
   if (left == right) {
     if (dest != left) emit_mv(as, dest, left);
   } else {
     if (dest == left) {
-	    emit_ds1s2(as, mvnez, dest, right, RID_TMP);
+	    emit_ds1s2(as, RISCVI_TH_MVNEZ, dest, right, RID_TMP);
     } else {
-	    emit_ds1s2(as, mveqz, dest, left, RID_TMP);
+	    emit_ds1s2(as, RISCVI_TH_MVEQZ, dest, left, RID_TMP);
 	    if (dest != right) emit_mv(as, dest, right);
     }
   }
       } else {
   emit_ds1s2(as, RISCVI_OR, dest, dest, RID_TMP);
-  if (dest != right) {
-    emit_ds1s2(as, RISCVI_AND, RID_TMP, right, RID_TMP);
-    emit_ds(as, RISCVI_NOT, RID_TMP, RID_TMP);
-    emit_ds1s2(as, RISCVI_AND, dest, left, RID_TMP);
+  if (as->flags & JIT_F_RVZicond) {
+    if (dest != right) {
+      emit_ds1s2(as, RISCVI_CZERO_EQZ, RID_TMP, right, RID_TMP);
+      emit_ds1s2(as, RISCVI_CZERO_NEZ, dest, left, RID_TMP);
+    } else {
+      emit_ds1s2(as, RISCVI_CZERO_NEZ, RID_TMP, left, RID_TMP);
+      emit_ds1s2(as, RISCVI_CZERO_EQZ, dest, right, RID_TMP);
+    }
   } else {
-    emit_ds1s2(as, RISCVI_AND, RID_TMP, left, RID_TMP);
-    emit_ds(as, RISCVI_NOT, RID_TMP, RID_TMP);
-    emit_ds1s2(as, RISCVI_AND, dest, right, RID_TMP);
+    if (dest != right) {
+      emit_ds1s2(as, RISCVI_AND, RID_TMP, right, RID_TMP);
+      emit_ds(as, RISCVI_NOT, RID_TMP, RID_TMP);
+      emit_ds1s2(as, RISCVI_AND, dest, left, RID_TMP);
+    } else {
+      emit_ds1s2(as, RISCVI_AND, RID_TMP, left, RID_TMP);
+      emit_ds(as, RISCVI_NOT, RID_TMP, RID_TMP);
+      emit_ds1s2(as, RISCVI_AND, dest, right, RID_TMP);
+    }
+    emit_dsi(as, RISCVI_ADDI, RID_TMP, RID_TMP, -1);
   }
-  emit_dsi(as, RISCVI_ADDI, RID_TMP, RID_TMP, -1);
       }
       emit_ds1s2(as, RISCVI_SLT, RID_TMP,
          ismax ? left : right, ismax ? right : left);
