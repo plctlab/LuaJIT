@@ -19,6 +19,18 @@ local concat = table.concat
 local bit = require("bit")
 local band, bor, tohex = bit.band, bit.bor, bit.tohex
 local lshift, rshift, arshift = bit.lshift, bit.rshift, bit.arshift
+local jit = require("jit")
+
+local jstat = { jit.status() }
+local function is_opt_enabled(opt)
+  for _, v in ipairs(jstat) do
+    if v == opt then
+      return true
+    end
+  end
+  return false
+end
+local xthead = is_opt_enabled("XThead")
 
 ------------------------------------------------------------------------------
 -- Opcode maps
@@ -384,8 +396,71 @@ local map_jalr = {
   _ = "jalr|jrDRI7", [256] = "ret"
 }
 
+local map_xthead_custom0 = {
+  shift = 12, mask = 7,
+  [1] = { -- Arithmetic
+    shift = 27, mask = 31,
+    [0] = "th.addslDRrv",
+    [2] = {
+      shift = 26, mask = 63,
+      [4] = "th.srriDRi",
+      [5] = {
+        shift = 25, mask = 127,
+        [10] = "th.srriwDRi"
+      }
+    },
+    [4] = { -- XTheadMac
+      shift = 25, mask = 3,
+      [0] = "th.mulaDRr", "th.mulsDRr", "th.mulawDRr", "th.mulswDRr"
+    },
+    [5] = { -- XTheadMac
+      shift = 25, mask = 3,
+      [0] = "th.mulahDRr", "th.mulshDRr"
+    },
+    [8] = { -- XTheadCondMov
+      shift = 25, mask = 3,
+      [0] = "th.mveqzDRr", "th.mvnezDRr"
+    },
+    [16] = { -- XTheadBb
+      shift = 20, mask = 31,
+      [0] = {
+        shift = 25, mask = 3,
+        [0] = "th.tstnbzDRi", "th.revDR", "th.ff0DR", "th.ff1DR"
+      }
+    },
+    [17] = { -- XTheadBb
+      shift = 26, mask = 1,
+      [0] = "th.tstDRi"
+    },
+    [18] = { -- XTheadBb
+      shift = 20, mask = 31,
+      [0] = {
+        shift = 25, mask = 3,
+        [0] = "th.revwDR"
+      }
+    }
+  },
+  [2] = "th.extDRji", [3] = "th.extuDRji",
+  { -- MemLoad
+    shift = 29, mask = 7,
+    [7] = { -- XTheadMemPair
+      shift = 25, mask = 3,
+      [0] = "th.lwdDrP", [2] = "th.lwudDrP", "th.lddDrP"
+    }
+  },
+  { -- MemStore
+    shift = 29, mask = 7,
+    [7] = { -- XTheadMemPair
+      shift = 25, mask = 3,
+      [0] = "th.swdDrP", [3] = "th.sddDrP"
+    }
+  }
+}
+
+local map_custom0 = xthead and map_xthead_custom0 or nil
+
 local map_pri = {
-  [3] = map_load, [7] = map_fload, [15] = map_fence, [19] = map_opimm,
+  [3] = map_load, [7] = map_fload, [11] = map_custom0, [15] = map_fence, [19] = map_opimm,
   [23] = "auipcDA", [27] = map_opimm32,
   [35] = map_store, [39] = map_fstore, [47] = map_aext, [51] = map_op,
   [55] = "luiDU", [59] = map_op32, [67] = map_fmadd, [71] = map_fmsub,
@@ -658,6 +733,11 @@ local function disass_ins(ctx)
       local register = map_gpr[band(rshift(op, 15), 31)]
       local disp = arshift(op, 20)
       x = format("%d(%s)", disp, register)
+    elseif p == "P" then -- XTheadMemPair
+      local register = map_gpr[band(rshift(op, 15), 31)]
+      local disp = band(arshift(op, 25), 3)
+      local isword = bxor(band(arshift(op, 26), 1), 1)
+      x = format("(%s), %d, %d", register, disp, isword and 3 or 4)
     elseif p == "I" then
       x = arshift(op, 20)
       --different for jalr
@@ -676,6 +756,12 @@ local function disass_ins(ctx)
     elseif p == "i" then
       --both for RV32I AND RV64I
       local value = band(arshift(op, 20), 63)
+      x = string.format("%d", value)
+    elseif p == "j" then -- XThead imm1[31..26]
+      local value = band(rshift(op, 26), 63)
+      x = string.format("%d", value)
+    elseif p == "v" then --XThead imm[2][26..25]
+      local value = band(rshift(op, 25), 3)
       x = string.format("%d", value)
     elseif p == "S" then
       local register = map_gpr[band(rshift(op, 15), 31)] --register
