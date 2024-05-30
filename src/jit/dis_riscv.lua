@@ -253,17 +253,28 @@ local map_load = {
   "lbuDL", "lhuDL", "lwuDL"
 }
 
-local map_ali = {
+local map_opimm = {
   shift = 12, mask = 7,
   [0] = {
     shift = 7, mask = 0x1ffffff,
     [0] = "nop", _ = "addi|li|mvDR0I2"
-  }
-  ,"slliDRi", "sltiDRI", "sltiu|seqzDRI5",
+  },
+  {
+    shift = 25, mask = 127,
+    [48] = {
+      shift = 20, mask = 31,
+      [4] = "sext.bDR", [5] = "sext.hDR"
+    },
+    _ = "slliDRi",
+  }, "sltiDRI", "sltiu|seqzDRI5",
   "xori|notDRI4",
   {
     shift = 26, mask = 63,
-    [0] = "srliDRi", [16] = "sraiDRi"
+    [0] = "srliDRi", [16] = "sraiDRi", [24] = "roriDRi",
+    [26] = {
+      shift = 20, mask = 63,
+      [56] = "rev8DR"
+    }
   },
   "oriDRI", "andiDRI"
 }
@@ -279,40 +290,79 @@ local map_store = {
   [0] = "sbSr", "shSr", "swSr", "sdSr"
 }
 
-local map_al = {
+local map_op = {
   shift = 25, mask = 127,
   [0] = {
     shift = 12, mask = 7,
     [0] = "addDRr", "sllDRr", "slt|sgtz|sltzDR0r2", "sltu|snezDR0r",
     "xorDRr", "srlDRr", "orDRr", "andDRr"
   },
-  map_mext,
-  [32] = {
+  [1] = map_mext,
+  [4] = {
+
+  },
+  [5] = { -- Zbb
     shift = 12, mask = 7,
-    [0] = "sub|negDR0r", [5] = "sraDRr"
+    [4] = "minDRr", [5] = "minuDRr", [6] = "maxDRr", [7] = "maxuDRr"
+  },
+  [7] = { -- Zicond
+    shift = 12, mask = 7,
+    [5] = "czero.eqzDRr", [7] = "czero.nezDRr"
+  },
+  [16] = { -- Zba
+    shift = 12, mask = 7,
+    [2] = "sh1addDRr", [4] = "sh2addDRr", [6] = "sh3addDRr"
+  },
+  [32] = { -- Zbb
+    shift = 12, mask = 7,
+    [0] = "sub|negDR0r", [4] = "xnorDRr", [5] = "sraDRr", [6] = "ornDRr", [7] = "andnDRr"
+  },
+  [48] = { -- Zbb
+    shift = 12, mask = 7,
+    [1] = "rolDRr", [5] = "rorDRr"
   }
 }
 
---64I
-local map_addi_shift = {
+--- 64I
+local map_opimm32 = {
   shift = 12, mask = 7,
   [0] = "addiw|sext.wDRI0", "slliwDRi",
-  [5] = {
+  [2] = { -- Zba
     shift = 25, mask = 127,
-    [0] = "srliwDRi", [32] = "sraiwDRi"
+    [1] = "slli.uwDRi"
+  },
+  [5] = { -- 64I
+    shift = 25, mask = 127,
+    [0] = "srliwDRi", [32] = "sraiwDRi", [48] = "roriwDRi"
+  },
+  [48] = { -- Zbb
+    shift = 25, mask = 127,
+    [5] = "roriwDRi"
   }
 }
 
-local map_arithw_shiftw = {
+local map_op32 = {
   shift = 25, mask = 127,
-  [0] = {
+  [0] = { -- 64I
     shift = 12, mask = 7,
     [0] = "addwDRr", [1] = "sllwDRr", [5] = "srlwDRr"
   },
   [1] = map_mext64,
-  [32] = {
+  [4] = { -- Zba & Zbb
+    shift = 12, mask = 7,
+    [0] = "add.uw|zext.w|DRr0", [4] = "zext.hDRr"
+  },
+  [16] = { -- Zba
+    shift = 12, mask = 7,
+    [2] = "sh1add.uw", [4] = "sh2add.uw", [6] = "sh3add.uw"
+  },
+  [32] = { -- 64I
     shift = 12, mask = 7,
     [0] = "subw|negwDR0r", [5] = "srawDRr"
+  },
+  [48] = { -- Zbb
+    shift = 12, mask = 7,
+    [1] = "rolwDRr", [5] = "rorwDRr"
   }
 }
 
@@ -335,10 +385,10 @@ local map_jalr = {
 }
 
 local map_pri = {
-  [3] = map_load, [7] = map_fload, [15] = map_fence, [19] = map_ali,
-  [23] = "auipcDA", [27] = map_addi_shift,
-  [35] = map_store, [39] = map_fstore, [47] = map_aext, [51] = map_al,
-  [55] = "luiDU", [59] = map_arithw_shiftw, [67] = map_fmadd, [71] = map_fmsub,
+  [3] = map_load, [7] = map_fload, [15] = map_fence, [19] = map_opimm,
+  [23] = "auipcDA", [27] = map_opimm32,
+  [35] = map_store, [39] = map_fstore, [47] = map_aext, [51] = map_op,
+  [55] = "luiDU", [59] = map_op32, [67] = map_fmadd, [71] = map_fmsub,
   [75] = map_fnmsub, [99] = map_branch, [79] = map_fnmadd, [83] = map_fext,
   [103] = map_jalr, [111] = "jal|j|D0J", [115] = map_ecabre
 }
@@ -626,7 +676,7 @@ local function disass_ins(ctx)
     elseif p == "i" then
       --both for RV32I AND RV64I
       local value = band(arshift(op, 20), 63)
-      x = string.format("0x%x", value)
+      x = string.format("%d", value)
     elseif p == "S" then
       local register = map_gpr[band(rshift(op, 15), 31)] --register
       local imm = parse_S(op)
