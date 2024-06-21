@@ -550,7 +550,7 @@
 #error "Only n64 ABI supported for MIPS64"
 #undef LJ_TARGET_MIPS
 #endif
-#elif LJ_TARGET_RISCV
+#elif LJ_TARGET_RISCV64
 #if !defined(__riscv_float_abi_double)
 #error "Only RISC-V 64 double float supported for now"
 #endif
