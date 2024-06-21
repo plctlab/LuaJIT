@@ -3,6 +3,11 @@
 LuaJIT is a Just-In-Time (JIT) compiler for the Lua programming language,
 RISC-V is a free and open ISA enabling a new era of processor innovation.
 
+Find latest LJRV release at [plctlab/LuaJIT, branch riscv64-v2.1-branch](https://github.com/plctlab/LuaJIT/tree/riscv64-v2.1-branch) or [plctlab/LuaJIT, branch v2.1-riscv64](https://github.com/plctlab/LuaJIT/tree/v2.1-riscv64).
+Development branch is avaliable at [plctlab/LuaJIT, branch riscv](https://github.com/plctlab/LuaJIT/tree/riscv).
+
+**This is the development patch branch of LJRV. We encourage you to use the latest release branch for production usage, unless you know what you are doing.**
+
 ## Introduction
 
 LJRV is a ongoing porting project of LuaJIT to the RISC-V 64-bit architecture by PLCT Lab, ISCAS.
