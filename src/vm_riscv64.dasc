@@ -1303,11 +1303,10 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |6:
   |  sltiu TMP3, TMP2, LJ_TISNUM
-  |  neg TMP3, TMP3
-  |  and TMP0, TISNUM, TMP3
-  |  not TMP3, TMP3
-  |  and TMP2, TMP2, TMP3
-  |  or TMP2, TMP2, TMP0
+  |  neg TMP4, TMP3
+  |  xor TMP0, TMP2, TISNUM		// TMP2 = TMP3 ? TISNUM : TMP2
+  |  and TMP0, TMP0, TMP4
+  |  xor TMP2, TMP0, TMP2
   |  slli TMP2, TMP2, 3
   |   sub TMP0, GL, TMP2
   |   ld TAB:RB, (offsetof(global_State, gcroot[GCROOT_BASEMT])-8)(TMP0)
@@ -1540,10 +1539,9 @@ static void build_subroutines(BuildCtx *ctx)
   |   addi TMP3, CARG2, 8
   |  seqz TMP4, CARG4
   |  neg TMP4, TMP4
+  |  xor CARG2, CARG2, TMP3		// CARG2 = TMP4 ? CARG2 : TMP3
   |  and CARG2, CARG2, TMP4
-  |  not TMP4, TMP4
-  |  and TMP3, TMP3, TMP4
-  |   or CARG2, CARG2, TMP3
+  |  xor CARG2, TMP3, CARG2
   |  bxgtz CARG4, ->fff_fallback		// st > LUA_YIELD?
   |   xor TMP2, TMP2, CARG3
   |   or CARG4, TMP2, TMP0
@@ -1819,10 +1817,9 @@ static void build_subroutines(BuildCtx *ctx)
   |.else
   |   neg TMP1, TMP0
   |.endif
-  | and CARG1, CARG1, TMP1
-  |  not TMP1, TMP1
-  |  and CARG2, CARG2, TMP1
-  |   or CARG1, CARG1, CARG2
+  |  xor TMP2, CARG1, CARG2		// CARG1 = TMP1 ? CARG1 : CARG2
+  |  and TMP2, TMP2, TMP1
+  |  xor CARG1, CARG2, TMP2
   |  addi RA, RA, 8
   |   zext.w CARG1, CARG1
   |   settp_b CARG1, TISNUM
@@ -3604,12 +3601,11 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
       |  lzi TMP0, 0x801
       |  addiw TMP2, CARG2, -0x7ff
       |   srliw CARG3, RD, 14
-      |  seqz TMP4, TMP2
-      |  neg TMP4, TMP4
-      |  and TMP0, TMP0, TMP4
-      |  not TMP4, TMP4
-      |  and CARG2, CARG2, TMP4
-      |  or CARG2, CARG2, TMP0
+      |  seqz TMP3, TMP2
+      |  neg TMP4, TMP3
+      |  xor CARG1, TMP0, CARG2		// CARG2 = TMP3 ? TMP0 : CARG2
+      |  and CARG1, CARG1, TMP4
+      |  xor CARG2, CARG2, CARG1
       |   mv CARG1, L
       |  // (lua_State *L, int32_t asize, uint32_t hbits)
       |  call_intern BC_TNEW, lj_tab_new
@@ -4428,10 +4424,9 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
       |  slt CARG2, CARG3, CARG4
       |  slt TMP1, CARG4, CARG3
       |  neg TMP4, TMP0
-      |  and TMP1, TMP1, TMP4
-      |  not TMP4, TMP4
-      |  and CARG2, CARG2, TMP4
-      |  or CARG2, CARG2, TMP1		// CARG2=0: +,start <= stop or -,start >= stop
+      |  xor TMP0, TMP1, CARG2		// CARG2 = TMP0 ? TMP1 : CARG2
+      |  and TMP0, TMP0, TMP4
+      |  xor CARG2, CARG2, TMP0		// CARG2=0: +,start <= stop or -,start >= stop
     } else {
       |  sext.w CARG5, CARG2		// step
       |  addw CARG1, CARG4, CARG5	// start + step
@@ -4443,10 +4438,9 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
       |  sltz TMP0, CARG5		// step < 0 ?
       |   sltz TMP3, TMP3		// ((y^a) & (y^b)) < 0: overflow.
       |  neg TMP4, TMP0
+      |  xor TMP1, TMP1, CARG3		// CARG3 = TMP0 ? TMP1 : CARG3
       |  and TMP1, TMP1, TMP4
-      |  not TMP4, TMP4
-      |  and CARG3, CARG3, TMP4
-      |  or CARG3, CARG3, TMP1
+      |  xor CARG3, CARG3, TMP1
       |  or CARG2, CARG3, TMP3		// CARG2=1: overflow; CARG2=0: continue
       |  zext.w CARG1, CARG1
       |  settp_b CARG1, TISNUM
@@ -4491,20 +4485,18 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
       |  bxeqz TMP0, ->vmeta_for		// if start or step or stop isn't number
       |  flt.d TMP3, FTMP0, FTMP1		// start < stop ?
       |  flt.d TMP4, FTMP1, FTMP0		// stop < start ?
-      |  and TMP3, TMP3, CARG2
-      |  not CARG2, CARG2
-      |  and TMP4, TMP4, CARG2
-      |  or CARG2, TMP3, TMP4	// CARG2=0:+,start<stop or -,start>stop
+      |  xor TMP0, TMP3, TMP4		// CARG2 = CARG2 ? TMP3 : TMP4
+      |  and TMP0, TMP0, CARG2
+      |  xor CARG2, TMP4, TMP0	// CARG2=0:+,start<stop or -,start>stop
       |  j <1
     } else {
       |  fld FTMP3, FORL_STEP*8(RA)
       |  fadd.d FTMP0, FTMP0, FTMP3		// start + step
       |  flt.d TMP3, FTMP0, FTMP1		// start + step < stop ?
       |  flt.d TMP4, FTMP1, FTMP0
-      |  and TMP3, TMP3, CARG2
-      |  not CARG2, CARG2
-      |  and TMP4, TMP4, CARG2
-      |  or CARG2, TMP3, TMP4
+      |  xor TMP0, TMP3, TMP4		// CARG2 = CARG2 ? TMP3 : TMP4
+      |  and TMP0, TMP0, CARG2
+      |  xor CARG2, TMP4, TMP0
       if (op == BC_IFORL) {
   |  addi TMP3, CARG2, -1
   |  and TMP2, TMP2, TMP3
@@ -4646,16 +4638,14 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |1:
     |  ld TMP0, 0(RA)
     |  sltu CARG2, RA, RC			// Less args than parameters?
-    |  mv CARG1, TMP0
     |    addi RA, RA, 8
     |    addi TMP1, TMP1, 8
     |    addiw TMP2, TMP2, -1
     |  beqz CARG2, >3
     |  neg TMP4, CARG2		// Clear old fixarg slot (help the GC).
-    |  and TMP3, TISNIL, TMP4
-    |  not TMP4, TMP4
-    |  and CARG1, CARG1, TMP4
-    |  or CARG1, CARG1, TMP3
+    |  xor TMP3, TISNIL, TMP0		// CARG1 = CARG2 ? TISNIL : TMP0
+    |  and TMP3, TMP3, TMP4
+    |  xor CARG1, TMP0, TMP3
     |  sd CARG1, -8(RA)
     |  sd TMP0, 8(TMP1)
     |  bnez TMP2, <1
@@ -4663,10 +4653,9 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  ins_next2
     |3:
     |  neg TMP4, CARG2		// Clear missing fixargs.
-    |  and TMP0, TMP0, TMP4
-    |  not TMP4, TMP4
-    |  and TMP3, TISNIL, TMP4
-    |  or TMP0, TMP0, TMP3
+    |  xor TMP3, TMP0, TISNIL		// TMP0 = CARG2 ? TMP0 : TISNIL
+    |  and TMP3, TMP3, TMP4
+    |  xor TMP0, TISNIL, TMP3
     |  sd TMP0, 8(TMP1)
     |  bnez TMP2, <1
     |  j <2
