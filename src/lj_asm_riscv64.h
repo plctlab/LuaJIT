@@ -1567,27 +1567,26 @@ static void asm_min_max(ASMState *as, IRIns *ir, int ismax)
 	    if (dest != right) emit_mv(as, dest, right);
     }
   }
-      } else {
+      } else if (as->flags & JIT_F_RVZicond) {
   emit_ds1s2(as, RISCVI_OR, dest, dest, RID_TMP);
-  if (as->flags & JIT_F_RVZicond) {
-    if (dest != right) {
-      emit_ds1s2(as, RISCVI_CZERO_EQZ, RID_TMP, right, RID_TMP);
-      emit_ds1s2(as, RISCVI_CZERO_NEZ, dest, left, RID_TMP);
-    } else {
-      emit_ds1s2(as, RISCVI_CZERO_NEZ, RID_TMP, left, RID_TMP);
-      emit_ds1s2(as, RISCVI_CZERO_EQZ, dest, right, RID_TMP);
-    }
+  if (dest != right) {
+    emit_ds1s2(as, RISCVI_CZERO_EQZ, RID_TMP, right, RID_TMP);
+    emit_ds1s2(as, RISCVI_CZERO_NEZ, dest, left, RID_TMP);
   } else {
-    if (dest != right) {
-      emit_ds1s2(as, RISCVI_AND, RID_TMP, right, RID_TMP);
-      emit_ds(as, RISCVI_NOT, RID_TMP, RID_TMP);
-      emit_ds1s2(as, RISCVI_AND, dest, left, RID_TMP);
-    } else {
-      emit_ds1s2(as, RISCVI_AND, RID_TMP, left, RID_TMP);
-      emit_ds(as, RISCVI_NOT, RID_TMP, RID_TMP);
-      emit_ds1s2(as, RISCVI_AND, dest, right, RID_TMP);
-    }
+    emit_ds1s2(as, RISCVI_CZERO_NEZ, RID_TMP, left, RID_TMP);
+    emit_ds1s2(as, RISCVI_CZERO_EQZ, dest, right, RID_TMP);
+  }
+      } else {
+  if (dest != right) {
+    emit_ds1s2(as, RISCVI_XOR, dest, right, dest);
+    emit_ds1s2(as, RISCVI_AND, dest, dest, RID_TMP);
+    emit_ds1s2(as, RISCVI_XOR, dest, right, left);
     emit_dsi(as, RISCVI_ADDI, RID_TMP, RID_TMP, -1);
+  } else {
+    emit_ds1s2(as, RISCVI_XOR, dest, left, dest);
+    emit_ds1s2(as, RISCVI_AND, dest, dest, RID_TMP);
+    emit_ds1s2(as, RISCVI_XOR, dest, left, right);
+    emit_ds1s2(as, RISCVI_SUB, RID_TMP, RID_ZERO, RID_TMP);
   }
       }
       emit_ds1s2(as, RISCVI_SLT, RID_TMP,
