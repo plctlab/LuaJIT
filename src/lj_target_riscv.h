@@ -8,26 +8,16 @@
 
 /* -- Registers IDs ------------------------------------------------------- */
 
-#if LJ_ARCH_EMBEDDED
-#define GPRDEF(_) \
-  _(X0) _(RA) _(SP) _(X3) _(X4) _(X5) _(X6) _(X7) \
-  _(X8) _(X9) _(X10) _(X11) _(X12) _(X13) _(X14) _(X15)
-#else
 #define GPRDEF(_) \
   _(X0) _(RA) _(SP) _(X3) _(X4) _(X5) _(X6) _(X7) \
   _(X8) _(X9) _(X10) _(X11) _(X12) _(X13) _(X14) _(X15) \
   _(X16) _(X17) _(X18) _(X19) _(X20) _(X21) _(X22) _(X23) \
   _(X24) _(X25) _(X26) _(X27) _(X28) _(X29) _(X30) _(X31)
-#endif
-#if LJ_SOFTFP
-#define FPRDEF(_)
-#else
 #define FPRDEF(_) \
   _(F0) _(F1) _(F2) _(F3) _(F4) _(F5) _(F6) _(F7) \
   _(F8) _(F9) _(F10) _(F11) _(F12) _(F13) _(F14) _(F15) \
   _(F16) _(F17) _(F18) _(F19) _(F20) _(F21) _(F22) _(F23) \
   _(F24) _(F25) _(F26) _(F27) _(F28) _(F29) _(F30) _(F31)
-#endif
 #define VRIDDEF(_)
 
 #define RIDENUM(name)	RID_##name,
@@ -43,18 +33,9 @@ enum {
 
   /* Calling conventions. */
   RID_RET = RID_X10,
-#if LJ_LE
-  RID_RETHI = RID_X11,
   RID_RETLO = RID_X10,
-#else
-  RID_RETHI = RID_X10,
-  RID_RETLO = RID_X11,
-#endif
-#if LJ_SOFTFP
-  RID_FPRET = RID_X10,
-#else
+  RID_RETHI = RID_X11,
   RID_FPRET = RID_F10,
-#endif
   RID_CFUNCADDR = RID_X5,
 
   /* These definitions must match with the *.dasc file(s): */
@@ -67,11 +48,7 @@ enum {
   RID_MIN_GPR = RID_X0,
   RID_MAX_GPR = RID_X31+1,
   RID_MIN_FPR = RID_MAX_GPR,
-#if LJ_SOFTFP
-  RID_MAX_FPR = RID_MIN_FPR,
-#else
   RID_MAX_FPR = RID_F31+1,
-#endif
   RID_NUM_GPR = RID_MAX_GPR - RID_MIN_GPR,
   RID_NUM_FPR = RID_MAX_FPR - RID_MIN_FPR	/* Only even regs are used. */
 };
@@ -86,11 +63,7 @@ enum {
   (RID2RSET(RID_ZERO)|RID2RSET(RID_TMP)|RID2RSET(RID_SP)|\
    RID2RSET(RID_GP)|RID2RSET(RID_TP)|RID2RSET(RID_GL))
 #define RSET_GPR	(RSET_RANGE(RID_MIN_GPR, RID_MAX_GPR) - RSET_FIXED)
-#if LJ_SOFTFP
-#define RSET_FPR	0
-#else
 #define RSET_FPR	RSET_RANGE(RID_MIN_FPR, RID_MAX_FPR)
-#endif
 
 #define RSET_ALL	(RSET_GPR|RSET_FPR)
 #define RSET_INIT	RSET_ALL
@@ -99,28 +72,18 @@ enum {
   (RSET_RANGE(RID_X5, RID_X7+1)|RSET_RANGE(RID_X28, RID_X31+1)|\
    RSET_RANGE(RID_X10, RID_X17+1))
 
-#if LJ_SOFTFP
-#define RSET_SCRATCH_FPR	0
-#else
 #define RSET_SCRATCH_FPR \
   (RSET_RANGE(RID_F0, RID_F7+1)|RSET_RANGE(RID_F10, RID_F17+1)|\
    RSET_RANGE(RID_F28, RID_F31+1))
-#endif
 #define RSET_SCRATCH		(RSET_SCRATCH_GPR|RSET_SCRATCH_FPR)
 
 #define REGARG_FIRSTGPR		RID_X10
 #define REGARG_LASTGPR		RID_X17
 #define REGARG_NUMGPR		8
 
-#if LJ_ABI_SOFTFP
-#define REGARG_FIRSTFPR		0
-#define REGARG_LASTFPR		0
-#define REGARG_NUMFPR		0
-#else
 #define REGARG_FIRSTFPR		RID_F10
 #define REGARG_LASTFPR		RID_F17
 #define REGARG_NUMFPR		8
-#endif
 
 /* -- Spill slots --------------------------------------------------------- */
 
@@ -146,9 +109,7 @@ enum {
 /* -- Exit state ---------------------------------------------------------- */
 /* This definition must match with the *.dasc file(s). */
 typedef struct {
-#if !LJ_SOFTFP
   lua_Number fpr[RID_NUM_FPR];	/* Floating-point registers. */
-#endif
   intptr_t gpr[RID_NUM_GPR];	/* General-purpose registers. */
   int32_t spill[256];		/* Spill slots. */
 } ExitState;
