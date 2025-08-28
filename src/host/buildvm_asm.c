@@ -278,7 +278,7 @@ void emit_asm(BuildCtx *ctx)
   fprintf(ctx->fp, "\t.set nomips16\n\t.abicalls\n\t.set noreorder\n\t.set nomacro\n");
 #endif
 #if LJ_TARGET_RISCV64
-  fprintf(ctx->fp, ".option arch, -c\n.option norelax\n");
+  fprintf(ctx->fp, ".option norvc\n.option norelax\n");
 #endif
   emit_asm_align(ctx, 4);
 
